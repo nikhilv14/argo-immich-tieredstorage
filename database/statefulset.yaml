@@ -43,18 +43,71 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
 
       initContainers:
+      # Debug: Check PVC before operations
+      - name: debug-pvc-before
+        image: busybox:1.36-glibc
+        command:
+        - sh
+        - -c
+        - |
+          echo "=== DEBUG: Before operations ==="
+          echo "UID/GID: $(id)"
+          echo "PVC mount point /data contents:"
+          ls -la /data/ 2>&1 | head -20
+          echo "PVC disk usage:"
+          du -sh /data 2>&1
+          echo "PVC permissions:"
+          stat /data 2>&1 | grep -E "Access|Uid"
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+
+      # Fix: Chown and chmod
       - name: volume-permissions
         image: busybox:1.36-glibc
         command:
         - sh
         - -c
         - |
-          echo "Setting up /var/lib/postgresql/data ownership..."
+          echo "=== Setting up permissions ==="
+          echo "Before chown:"
+          ls -la /data/ | head -5
+          
           chown -R 999:999 /data
           chmod 700 /data
-          echo "Ownership setup complete"
+          
+          echo "After chown:"
+          ls -la /data/ | head -5
+          echo "Setup complete"
         securityContext:
           runAsUser: 0
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+
+      # Debug: After permissions fixed
+      - name: debug-pvc-after
+        image: busybox:1.36-glibc
+        command:
+        - sh
+        - -c
+        - |
+          echo "=== DEBUG: After permissions ==="
+          echo "UID/GID: $(id)"
+          echo "Contents:"
+          ls -la /data/ 2>&1 | head -20
+          echo "Checking PG_VERSION:"
+          [ -f /data/PG_VERSION ] && echo "✓ PG_VERSION exists" || echo "✗ PG_VERSION missing"
+          echo "Looking for any cluster markers:"
+          find /data -name "PG_VERSION" -o -name "global" -o -name "pg_tblspc" 2>/dev/null
         volumeMounts:
         - name: data
           mountPath: /data
@@ -75,12 +128,19 @@ spec:
           runAsUser: 999
           runAsNonRoot: true
         
+        # Debug: Check what Postgres sees at startup
         command:
-        - postgres
+        - sh
         - -c
-        - config_file=/etc/postgresql/postgresql.conf
-        - -c
-        - hba_file=/etc/postgresql/pg_hba.conf
+        - |
+          echo "=== PostgreSQL startup debug ==="
+          echo "PGDATA env: ${PGDATA:-not set}"
+          echo "Contents of /var/lib/postgresql/data:"
+          ls -la /var/lib/postgresql/data/ 2>&1 | head -20
+          echo "PG_VERSION check:"
+          [ -f /var/lib/postgresql/data/PG_VERSION ] && echo "✓ Found" || echo "✗ Missing"
+          echo "Starting postgres..."
+          exec postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
         
         env:
         - name: POSTGRES_DB
