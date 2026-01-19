@@ -37,39 +37,31 @@ spec:
                 operator: In
                 values:
                 - k3s-node1
+
       securityContext:
         fsGroup: 999
         fsGroupChangePolicy: OnRootMismatch
 
       initContainers:
-      # ✅ ROOT INIT: Recursive chown/chmod (fixes CSI fsGroup issues)
       - name: volume-permissions
         image: busybox:1.36-glibc
         command:
         - sh
         - -c
         - |
-          echo "Fixing /data permissions..."
+          echo "Setting up /var/lib/postgresql/data ownership..."
           chown -R 999:999 /data
-          find /data -type d -exec chmod 700 {} \;
-          find /data -type f -exec chmod 600 {} \;
-          
-          # Fresh cluster: Clear if no PG_VERSION (safe for new PVC)
-          if [ ! -f /data/PG_VERSION ]; then
-            echo "Fresh PVC detected - clearing for initdb"
-            rm -rf /data/*
-          fi
-          
-          echo "Permissions fixed - PG_VERSION: $(ls /data/PG_VERSION 2>/dev/null || echo 'none')"
+          chmod 700 /data
+          echo "Ownership setup complete"
         securityContext:
-          runAsUser: 0  # ✅ ROOT for chown
+          runAsUser: 0
         volumeMounts:
         - name: data
           mountPath: /data
         resources:
-          requests: {cpu: 10m, memory: 32Mi}
-
-
+          requests:
+            cpu: 10m
+            memory: 32Mi
 
       containers:
       - name: postgresql
@@ -78,9 +70,18 @@ spec:
         ports:
         - containerPort: 5432
           name: postgres
+        
         securityContext:
           runAsUser: 999
           runAsNonRoot: true
+        
+        command:
+        - postgres
+        - -c
+        - config_file=/etc/postgresql/postgresql.conf
+        - -c
+        - hba_file=/etc/postgresql/pg_hba.conf
+        
         env:
         - name: POSTGRES_DB
           value: immich
@@ -91,17 +92,17 @@ spec:
             secretKeyRef:
               name: immich-db-secret
               key: password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        
         volumeMounts:
         - name: data
           mountPath: /var/lib/postgresql/data
         - name: wal-archive
           mountPath: /wal-archive
         - name: postgresql-conf
-          mountPath: /var/lib/postgresql/data/postgresql.conf
-          subPath: postgresql.conf
-        - name: pg-hba-conf
-          mountPath: /var/lib/postgresql/data/pg_hba.conf
-          subPath: pg_hba.conf
+          mountPath: /etc/postgresql
+        
         livenessProbe:
           exec:
             command:
@@ -111,6 +112,8 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 5
+          failureThreshold: 3
+        
         readinessProbe:
           exec:
             command:
@@ -120,6 +123,8 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 5
           timeoutSeconds: 3
+          failureThreshold: 2
+        
         resources:
           requests:
             cpu: 250m
@@ -127,6 +132,7 @@ spec:
           limits:
             cpu: 1000m
             memory: 2Gi
+      
       volumes:
       - name: data
         persistentVolumeClaim:
@@ -137,15 +143,5 @@ spec:
       - name: postgresql-conf
         configMap:
           name: postgresql-config
-          defaultMode: 0640
-          items:
-          - key: postgresql.conf
-            path: postgresql.conf
-      - name: pg-hba-conf
-        configMap:
-          name: postgresql-config
-          defaultMode: 0600
-          items:
-          - key: pg_hba.conf
-            path: pg_hba.conf
+          defaultMode: 0644
 
