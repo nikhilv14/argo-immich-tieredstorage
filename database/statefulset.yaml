@@ -1,9 +1,3 @@
-# See full resilient-storage-v2.md document for complete PostgreSQL manifest
-# Key features:
-# - Data volume: immich-db-primary (SSD cache, fast)
-# - WAL archive: immich-db-wal-archive (NAS, replication)
-# - Streaming replication support
-# - Archive command syncs WAL to NAS
 apiVersion: v1
 kind: Service
 metadata:
@@ -34,6 +28,17 @@ spec:
       labels:
         app: immich-db
     spec:
+      # Pin to SSD node (k3s-node1) for ReadWriteOnce PVC
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - k3s-node1
+
       containers:
       - name: postgresql
         image: postgres:15-alpine
@@ -47,18 +52,18 @@ spec:
           value: immich
         - name: POSTGRES_USER
           value: immich
-        - name: POSTGRES_INITDB_ARGS
-          value: "-c shared_buffers=256MB -c effective_cache_size=1GB"
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: immich-db-secret
               key: password
+        - name: POSTGRES_INITDB_ARGS
+          value: "-c shared_buffers=256MB -c effective_cache_size=1GB"
         
         volumeMounts:
+        # Use PRE-CREATED PVCs from storage app
         - name: data
-          mountPath: /var/lib/postgresql/data
-          subPath: pgdata
+          mountPath: /var/lib/postgresql/data/pgdata
         - name: wal-archive
           mountPath: /wal-archive
         - name: config
@@ -96,28 +101,17 @@ spec:
             cpu: 1000m
             memory: 2Gi
       
+      # ✅ FIXED: Reference pre-created PVCs (no volumeClaimTemplates)
       volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: immich-db-primary  # From storage app
+      - name: wal-archive
+        persistentVolumeClaim:
+          claimName: immich-db-wal-archive  # From storage app
       - name: config
         configMap:
           name: postgresql-config
       - name: initdb
         emptyDir: {}
-      
-      volumeClaimTemplates:
-      - metadata:
-          name: data
-        spec:
-          accessModes: [ "ReadWriteOnce" ]
-          storageClassName: ssd-cache
-          resources:
-            requests:
-              storage: 20Gi
-      
-      - metadata:
-          name: wal-archive
-        spec:
-          accessModes: [ "ReadWriteMany" ]
-          storageClassName: nas-rwx
-          resources:
-            requests:
-              storage: 30Gi
+
