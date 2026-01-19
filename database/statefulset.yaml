@@ -1,4 +1,3 @@
-/
 apiVersion: v1
 kind: Service
 metadata:
@@ -29,7 +28,6 @@ spec:
       labels:
         app: immich-db
     spec:
-      # Pin to SSD node
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -39,11 +37,9 @@ spec:
                 operator: In
                 values:
                 - k3s-node1
-
       securityContext:
         fsGroup: 999
         fsGroupChangePolicy: OnRootMismatch
-
       containers:
       - name: postgresql
         image: postgres:15-alpine
@@ -51,7 +47,9 @@ spec:
         ports:
         - containerPort: 5432
           name: postgres
-        
+        securityContext:
+          runAsUser: 999
+          runAsNonRoot: true
         env:
         - name: POSTGRES_DB
           value: immich
@@ -62,39 +60,35 @@ spec:
             secretKeyRef:
               name: immich-db-secret
               key: password
-        
         volumeMounts:
         - name: data
           mountPath: /var/lib/postgresql/data
         - name: wal-archive
           mountPath: /wal-archive
-        # ✅ DIRECT MOUNT: Config files to PGDATA (no init container needed)
         - name: postgresql-conf
           mountPath: /var/lib/postgresql/data/postgresql.conf
           subPath: postgresql.conf
         - name: pg-hba-conf
           mountPath: /var/lib/postgresql/data/pg_hba.conf
           subPath: pg_hba.conf
-        
         livenessProbe:
           exec:
             command:
             - /bin/sh
             - -c
             - pg_isready -U immich -d immich
-          initialDelaySeconds: 45
+          initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 5
-        
         readinessProbe:
           exec:
             command:
             - /bin/sh
             - -c
             - pg_isready -U immich -d immich
-          initialDelaySeconds: 15
+          initialDelaySeconds: 30
           periodSeconds: 5
-        
+          timeoutSeconds: 3
         resources:
           requests:
             cpu: 250m
@@ -102,7 +96,6 @@ spec:
           limits:
             cpu: 1000m
             memory: 2Gi
-      
       volumes:
       - name: data
         persistentVolumeClaim:
@@ -110,7 +103,6 @@ spec:
       - name: wal-archive
         persistentVolumeClaim:
           claimName: immich-db-wal-archive
-      # ✅ CONFIGMAP SUBPATH MOUNTS (direct to PGDATA)
       - name: postgresql-conf
         configMap:
           name: postgresql-config
@@ -125,6 +117,4 @@ spec:
           items:
           - key: pg_hba.conf
             path: pg_hba.conf
-
-  # ✅ NO volumeClaimTemplates (using pre-created PVCs)
 
