@@ -139,6 +139,15 @@ spec:
           ls -la /var/lib/postgresql/data/ 2>&1 | head -20
           echo "PG_VERSION check:"
           [ -f /var/lib/postgresql/data/PG_VERSION ] && echo "✓ Found" || echo "✗ Missing"
+          if [ ! -s "$PGDATA/PG_VERSION" ]; then
+            echo "PGDATA is empty - running initdb..."
+            initdb --username="${POSTGRES_USER}" --auth=trust --encoding=UTF8 --locale=C
+            echo "✓ initdb completed successfully"
+          else
+            echo ""
+            echo ">>> ✓ Cluster already initialized"
+            echo ">>> PG_VERSION: $(cat $PGDATA/PG_VERSION)"
+          fi
           echo "Starting postgres..."
           exec postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
         
