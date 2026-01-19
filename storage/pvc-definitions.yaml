@@ -19,7 +19,7 @@ metadata:
   namespace: immich
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce 
   storageClassName: ssd-cache
   resources:
     requests:
@@ -33,7 +33,7 @@ metadata:
   namespace: immich
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce 
   storageClassName: ssd-cache
   resources:
     requests:
