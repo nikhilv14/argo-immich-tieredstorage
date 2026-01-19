@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: immich-grafana-dashboard
+  namespace: immich
+  labels:
+    grafana_dashboard: "1"
+data:
+  immich-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Immich Tiered Storage Resilience",
+        "tags": ["immich", "storage", "tiered"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "NAS Availability Status (1=Available, 0=Down)",
+            "targets": [
+              {
+                "expr": "kube_persistentvolumeclaim_status_phase{claim=\"immich-library\", phase=\"Bound\"}"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Upload Queue Size (GB)",
+            "targets": [
+              {
+                "expr": "kubelet_volume_stats_used_bytes{persistentvolumeclaim=\"immich-upload\"} / 1e9"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "SSD Cache Utilization (%)",
+            "targets": [
+              {
+                "expr": "(kubelet_volume_stats_used_bytes{persistentvolumeclaim=\"immich-cache\"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=\"immich-cache\"}) * 100"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "NAS Library Size (GB)",
+            "targets": [
+              {
+                "expr": "kubelet_volume_stats_used_bytes{persistentvolumeclaim=\"immich-library\"} / 1e9"
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Database Size (GB)",
+            "targets": [
+              {
+                "expr": "kubelet_volume_stats_used_bytes{persistentvolumeclaim=\"immich-db-primary\"} / 1e9"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Sync Daemon Status (1=Running, 0=Down)",
+            "targets": [
+              {
+                "expr": "up{pod=~\"immich-server-.*\", container=\"sync-daemon\"}"
+              }
+            ]
+          }
+        ]
+      }
+    }

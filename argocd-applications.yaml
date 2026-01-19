@@ -1,0 +1,101 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: immich
+  namespace: argocd
+spec:
+  description: Immich resilient tiered storage project
+  destinations:
+  - namespace: '*'
+    server: https://kubernetes.default.svc
+  sourceRepos:
+  - https://github.com/nikhilv14/argo-immich-tieredstorage.git
+  clusterResourceWhitelist:
+  - group: ''
+    kind: Namespace
+  namespaceResourceWhitelist:
+  - group: ''
+    kind: '*'
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich-storage
+  namespace: argocd
+spec:
+  project: immich
+  source:
+    repoURL: https://github.com/nikhilv14/argo-immich-tieredstorage.git
+    targetRevision: main
+    path: storage
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: false
+      selfHeal: true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich-database
+  namespace: argocd
+spec:
+  project: immich
+  source:
+    repoURL: https://github.com/nikhilv14/argo-immich-tieredstorage.git
+    targetRevision: main
+    path: database
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich-app
+  namespace: argocd
+spec:
+  project: immich
+  source:
+    repoURL: https://github.com/nikhilv14/argo-immich-tieredstorage.git
+    targetRevision: main
+    path: immich
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+
+---
+# Application 4: MONITORING LAYER (NEW)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich-monitoring
+  namespace: argocd
+spec:
+  project: immich
+  source:
+    repoURL: https://github.com/nikhilv14/argo-immich-tieredstorage.git
+    targetRevision: main
+    path: monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true

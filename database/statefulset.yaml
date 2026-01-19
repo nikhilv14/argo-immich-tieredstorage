@@ -1,0 +1,123 @@
+# See full resilient-storage-v2.md document for complete PostgreSQL manifest
+# Key features:
+# - Data volume: immich-db-primary (SSD cache, fast)
+# - WAL archive: immich-db-wal-archive (NAS, replication)
+# - Streaming replication support
+# - Archive command syncs WAL to NAS
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-db
+  namespace: immich
+spec:
+  clusterIP: None
+  selector:
+    app: immich-db
+  ports:
+  - port: 5432
+    name: postgres
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: immich-db
+  namespace: immich
+spec:
+  serviceName: immich-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immich-db
+  template:
+    metadata:
+      labels:
+        app: immich-db
+    spec:
+      containers:
+      - name: postgresql
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+          name: postgres
+        
+        env:
+        - name: POSTGRES_DB
+          value: immich
+        - name: POSTGRES_USER
+          value: immich
+        - name: POSTGRES_INITDB_ARGS
+          value: "-c shared_buffers=256MB -c effective_cache_size=1GB"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: immich-db-secret
+              key: password
+        
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+          subPath: pgdata
+        - name: wal-archive
+          mountPath: /wal-archive
+        - name: config
+          mountPath: /etc/postgresql
+        - name: initdb
+          mountPath: /docker-entrypoint-initdb.d
+        
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U immich -d immich
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U immich -d immich
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+      
+      volumes:
+      - name: config
+        configMap:
+          name: postgresql-config
+      - name: initdb
+        emptyDir: {}
+      
+      volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          storageClassName: ssd-cache
+          resources:
+            requests:
+              storage: 20Gi
+      
+      - metadata:
+          name: wal-archive
+        spec:
+          accessModes: [ "ReadWriteMany" ]
+          storageClassName: nas-rwx
+          resources:
+            requests:
+              storage: 30Gi

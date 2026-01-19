@@ -1,0 +1,128 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: immich-tiered-storage
+  namespace: immich
+spec:
+  groups:
+  # Group 1: Tiered Storage Alerts
+  - name: immich.tiered.storage
+    interval: 30s
+    rules:
+    
+    # CRITICAL: NAS Storage Unavailable
+    - alert: ImmichNASUnavailable
+      expr: |
+        absent(kube_persistentvolumeclaim_status_phase{claim="immich-library", phase="Bound"})
+      for: 5m
+      labels:
+        severity: critical
+        component: storage
+        tier: nas
+      annotations:
+        summary: "Immich NAS storage unavailable for 5 minutes"
+        description: |
+          Immich is operating in fallback mode using SSD cache only.
+          Recent uploads will be queued but older photos may be inaccessible.
+          Check NAS server connectivity and mount status.
+        runbook_url: "https://github.com/nikhilv14/argo-immich-tieredstorage/docs/runbooks/nas-unavailable.md"
+    
+    # WARNING: Upload Queue Growing Too Large
+    - alert: ImmichSyncQueueLarge
+      expr: |
+        (kubelet_volume_stats_used_bytes{persistentvolumeclaim="immich-upload"} / 1e9) > 40
+      for: 10m
+      labels:
+        severity: warning
+        component: storage
+        tier: ssd
+      annotations:
+        summary: "Immich upload queue > 40GB (approaching 50GB limit)"
+        description: |
+          Sync daemon may be behind or NAS connectivity degraded.
+          Current upload size: {{ $value | humanize }}GB
+          Check sync daemon logs: kubectl logs -c sync-daemon | tail -50
+    
+    # WARNING: Sync Daemon Stalled
+    - alert: ImmichSyncDaemonStalled
+      expr: |
+        time() - (max(container_last_seen{pod=~"immich-server-.*", container="sync-daemon"}) by (pod)) > 900
+      for: 15m
+      labels:
+        severity: warning
+        component: sync-daemon
+      annotations:
+        summary: "Immich sync daemon stalled (no activity for 15 min)"
+        description: |
+          Sync daemon pod may be hanging or stuck.
+          Restart command: kubectl rollout restart deployment/immich-server -n immich
+    
+    # CRITICAL: Database Unavailable
+    - alert: ImmichDatabaseUnavailable
+      expr: |
+        up{pod=~"immich-db-.*"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        component: database
+      annotations:
+        summary: "Immich database is unavailable"
+        description: |
+          PostgreSQL pod is down. Immich service will be completely unavailable.
+          Restart: kubectl rollout restart statefulset/immich-db -n immich
+    
+    # WARNING: Database WAL Archive Full
+    - alert: ImmichDatabaseWALArchiveFull
+      expr: |
+        (kubelet_volume_stats_used_bytes{persistentvolumeclaim="immich-db-wal-archive"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim="immich-db-wal-archive"}) > 0.85
+      for: 10m
+      labels:
+        severity: warning
+        component: database
+      annotations:
+        summary: "Database WAL archive > 85% full (30GB capacity)"
+        description: |
+          PostgreSQL WAL replication archive is nearly full.
+          Check NAS storage space: ssh to NAS and run "df -h"
+    
+    # WARNING: Redis Cache Down
+    - alert: ImmichRedisCacheDown
+      expr: |
+        up{pod=~"immich-redis-.*"} == 0
+      for: 5m
+      labels:
+        severity: warning
+        component: cache
+      annotations:
+        summary: "Immich Redis cache is down"
+        description: |
+          Redis pod not responding. Restart: kubectl rollout restart deployment/immich-redis -n immich
+    
+    # CRITICAL: SSD Cache Almost Full
+    - alert: ImmichSSCacheAlmostFull
+      expr: |
+        (kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"immich-cache|immich-upload|immich-db-primary"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"immich-cache|immich-upload|immich-db-primary"}) > 0.90
+      for: 10m
+      labels:
+        severity: critical
+        component: storage
+        tier: ssd
+      annotations:
+        summary: "SSD {{ $labels.persistentvolumeclaim }} is 90% full"
+        description: |
+          New uploads will fail if space not freed immediately.
+          Volume: {{ $labels.persistentvolumeclaim }}
+          Used: {{ $value | humanize }}%
+    
+    # INFO: High Upload Rate to NAS
+    - alert: ImmichNASHighUploadRate
+      expr: |
+        rate(kubelet_volume_stats_used_bytes{persistentvolumeclaim="immich-library"}[1h]) > (1 * 1024^3)
+      for: 30m
+      labels:
+        severity: info
+        component: storage
+      annotations:
+        summary: "NAS library growing at {{ $value | humanize }}B/hour"
+        description: |
+          High sustained upload rate. This may be expected or sync daemon backed up.

@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nas-rwx
+  resources:
+    requests:
+      storage: 500Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-upload
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ssd-cache
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-cache
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ssd-cache
+  resources:
+    requests:
+      storage: 150Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-sync-queue
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ssd-cache
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-db-primary
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ssd-cache
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-db-wal-archive
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nas-rwx
+  resources:
+    requests:
+      storage: 30Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-profile
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ssd-cache
+  resources:
+    requests:
+      storage: 1Gi
