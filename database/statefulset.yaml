@@ -41,7 +41,7 @@ spec:
                 - k3s-node1
 
       securityContext:
-        fsGroup: 999      # ✅ Chowns PVC to postgres group on mount
+        fsGroup: 999
         fsGroupChangePolicy: OnRootMismatch
 
 #      initContainers:
