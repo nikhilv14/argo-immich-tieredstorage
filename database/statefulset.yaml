@@ -28,6 +28,7 @@ spec:
       labels:
         app: immich-db
     spec:
+      # Pin to SSD node
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -38,34 +39,11 @@ spec:
                 values:
                 - k3s-node1
 
-      initContainers:
-      # ✅ NEW: Copy config files to PGDATA before initdb
-      - name: config-setup
-        image: postgres:15-alpine
-        command:
-        - sh
-        - -c
-        - |
-          # Copy postgresql.conf to PGDATA
-          cp /etc/postgresql/postgresql.conf /var/lib/postgresql/data/postgresql.conf
-          
-          # Copy pg_hba.conf to PGDATA
-          cp /etc/postgresql/pg_hba.conf /var/lib/postgresql/data/pg_hba.conf
-          
-          # Fix permissions
-          chown -R 999:999 /var/lib/postgresql/data
-          chmod 600 /var/lib/postgresql/data/postgresql.conf
-          chmod 600 /var/lib/postgresql/data/pg_hba.conf
-          
-          echo "Config files copied successfully"
-        volumeMounts:
-        - name: data
-          mountPath: /var/lib/postgresql/data
-        - name: config
-          mountPath: /etc/postgresql
-        securityContext:
-          runAsUser: 999  # postgres UID
-          runAsGroup: 999
+      securityContext:
+        fsGroup: 999      # ✅ Chowns PVC to postgres group on mount
+        runAsUser: 999
+        runAsNonRoot: true
+        fsGroupChangePolicy: "Always"
 
       containers:
       - name: postgresql
@@ -85,14 +63,19 @@ spec:
             secretKeyRef:
               name: immich-db-secret
               key: password
-        # ✅ REMOVED: Invalid POSTGRES_INITDB_ARGS
         
         volumeMounts:
         - name: data
           mountPath: /var/lib/postgresql/data
         - name: wal-archive
           mountPath: /wal-archive
-        # Config now copied by init container to PGDATA
+        # ✅ DIRECT MOUNT: Config files to PGDATA (no init container needed)
+        - name: postgresql-conf
+          mountPath: /var/lib/postgresql/data/postgresql.conf
+          subPath: postgresql.conf
+        - name: pg-hba-conf
+          mountPath: /var/lib/postgresql/data/pg_hba.conf
+          subPath: pg_hba.conf
         
         livenessProbe:
           exec:
@@ -100,7 +83,7 @@ spec:
             - /bin/sh
             - -c
             - pg_isready -U immich -d immich
-          initialDelaySeconds: 60  # Increased for init container
+          initialDelaySeconds: 45
           periodSeconds: 10
           timeoutSeconds: 5
         
@@ -110,7 +93,7 @@ spec:
             - /bin/sh
             - -c
             - pg_isready -U immich -d immich
-          initialDelaySeconds: 30
+          initialDelaySeconds: 15
           periodSeconds: 5
         
         resources:
@@ -128,17 +111,21 @@ spec:
       - name: wal-archive
         persistentVolumeClaim:
           claimName: immich-db-wal-archive
-      - name: config
+      # ✅ CONFIGMAP SUBPATH MOUNTS (direct to PGDATA)
+      - name: postgresql-conf
         configMap:
           name: postgresql-config
+          defaultMode: 0640
           items:
           - key: postgresql.conf
             path: postgresql.conf
+      - name: pg-hba-conf
+        configMap:
+          name: postgresql-config
+          defaultMode: 0600
+          items:
           - key: pg_hba.conf
             path: pg_hba.conf
-      securityContext:
-        fsGroup: 999  # postgres GID
-        runAsUser: 999
 
   # ✅ NO volumeClaimTemplates (using pre-created PVCs)
 
