@@ -29,7 +29,6 @@ data:
     archive_timeout = 300
     
     synchronous_commit = local
-    data_checksums = on
     
     log_min_duration_statement = 250
     log_connections = on
