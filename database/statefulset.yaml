@@ -56,13 +56,13 @@ spec:
 #          chown -R 999:999 /data
 #          find /data -type d -exec chmod 700 {} \;
 #          find /data -type f -exec chmod 600 {} \;
-          
+#          
 #          # Fresh cluster: Clear if no PG_VERSION (safe for new PVC)
 #          if [ ! -f /data/PG_VERSION ]; then
 #            echo "Fresh PVC detected - clearing for initdb"
 #            rm -rf /data/*
 #          fi
-          
+#          
 #          echo "Permissions fixed - PG_VERSION: $(ls /data/PG_VERSION 2>/dev/null || echo 'none')"
 #        securityContext:
 #          runAsUser: 0  # ✅ ROOT for chown
