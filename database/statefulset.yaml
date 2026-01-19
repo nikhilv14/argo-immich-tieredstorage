@@ -42,7 +42,7 @@ spec:
 
       securityContext:
         fsGroup: 999      # ✅ Chowns PVC to postgres group on mount
-        fsGroupChangePolicy: OnRootMismatch  
+        fsGroupChangePolicy: OnRootMismatch
 
 #      initContainers:
 #      # ✅ ROOT INIT: Recursive chown/chmod (fixes CSI fsGroup issues)
