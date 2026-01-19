@@ -28,7 +28,6 @@ spec:
       labels:
         app: immich-db
     spec:
-      # Pin to SSD node (k3s-node1) for ReadWriteOnce PVC
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -38,6 +37,35 @@ spec:
                 operator: In
                 values:
                 - k3s-node1
+
+      initContainers:
+      # ✅ NEW: Copy config files to PGDATA before initdb
+      - name: config-setup
+        image: postgres:15-alpine
+        command:
+        - sh
+        - -c
+        - |
+          # Copy postgresql.conf to PGDATA
+          cp /etc/postgresql/postgresql.conf /var/lib/postgresql/data/postgresql.conf
+          
+          # Copy pg_hba.conf to PGDATA
+          cp /etc/postgresql/pg_hba.conf /var/lib/postgresql/data/pg_hba.conf
+          
+          # Fix permissions
+          chown -R 999:999 /var/lib/postgresql/data
+          chmod 600 /var/lib/postgresql/data/postgresql.conf
+          chmod 600 /var/lib/postgresql/data/pg_hba.conf
+          
+          echo "Config files copied successfully"
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        - name: config
+          mountPath: /etc/postgresql
+        securityContext:
+          runAsUser: 999  # postgres UID
+          runAsGroup: 999
 
       containers:
       - name: postgresql
@@ -57,19 +85,14 @@ spec:
             secretKeyRef:
               name: immich-db-secret
               key: password
-        - name: POSTGRES_INITDB_ARGS
-          value: "-c shared_buffers=256MB -c effective_cache_size=1GB"
+        # ✅ REMOVED: Invalid POSTGRES_INITDB_ARGS
         
         volumeMounts:
-        # Use PRE-CREATED PVCs from storage app
         - name: data
-          mountPath: /var/lib/postgresql/data/pgdata
+          mountPath: /var/lib/postgresql/data
         - name: wal-archive
           mountPath: /wal-archive
-        - name: config
-          mountPath: /etc/postgresql
-        - name: initdb
-          mountPath: /docker-entrypoint-initdb.d
+        # Config now copied by init container to PGDATA
         
         livenessProbe:
           exec:
@@ -77,10 +100,9 @@ spec:
             - /bin/sh
             - -c
             - pg_isready -U immich -d immich
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60  # Increased for init container
           periodSeconds: 10
           timeoutSeconds: 5
-          failureThreshold: 3
         
         readinessProbe:
           exec:
@@ -88,10 +110,8 @@ spec:
             - /bin/sh
             - -c
             - pg_isready -U immich -d immich
-          initialDelaySeconds: 10
+          initialDelaySeconds: 30
           periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 2
         
         resources:
           requests:
@@ -101,17 +121,24 @@ spec:
             cpu: 1000m
             memory: 2Gi
       
-      # ✅ FIXED: Reference pre-created PVCs (no volumeClaimTemplates)
       volumes:
       - name: data
         persistentVolumeClaim:
-          claimName: immich-db-primary  # From storage app
+          claimName: immich-db-primary
       - name: wal-archive
         persistentVolumeClaim:
-          claimName: immich-db-wal-archive  # From storage app
+          claimName: immich-db-wal-archive
       - name: config
         configMap:
           name: postgresql-config
-      - name: initdb
-        emptyDir: {}
+          items:
+          - key: postgresql.conf
+            path: postgresql.conf
+          - key: pg_hba.conf
+            path: pg_hba.conf
+      securityContext:
+        fsGroup: 999  # postgres GID
+        runAsUser: 999
+
+  # ✅ NO volumeClaimTemplates (using pre-created PVCs)
 

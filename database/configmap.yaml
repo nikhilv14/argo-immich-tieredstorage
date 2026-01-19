@@ -5,38 +5,40 @@ metadata:
   namespace: immich
 data:
   postgresql.conf: |
-    # Basic Settings
-    listen_addresses = '*'
-    max_connections = 200
+    # Performance tuning
+    shared_buffers = 256MB
+    effective_cache_size = 1GB
+    work_mem = 4MB
+    maintenance_work_mem = 64MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 16MB
+    default_statistics_target = 100
+    random_page_cost = 1.1
+    effective_io_concurrency = 200
+    shared_preload_libraries = 'pg_stat_statements'
     
-    # Replication Settings
+    # WAL Replication (for NAS standby)
     wal_level = replica
     max_wal_senders = 5
     wal_keep_size = 1GB
     hot_standby = on
     hot_standby_feedback = on
-    
-    # Archive Settings (for standby recovery)
     archive_mode = on
     archive_command = 'test ! -f /wal-archive/%f && cp %p /wal-archive/%f'
     archive_timeout = 300
-    
-    # Synchronization
     synchronous_commit = local
-    wal_buffers = 16MB
     
     # Logging
-    log_replication_commands = on
+    log_min_duration_statement = 250
+    log_checkpoints = on
     log_connections = on
     log_disconnections = on
-    
+  
   pg_hba.conf: |
-    # Allow local connections
+    # TYPE  DATABASE        USER            ADDRESS                 METHOD
     local   all             all                                     trust
     host    all             all             127.0.0.1/32            trust
-    
-    # Allow replication connections
+    host    all             all             ::1/128                 trust
     host    replication     immich          0.0.0.0/0               md5
-    
-    # Allow connections from immich app
-    host    immich          immich          127.0.0.1/32            trust
+    host    immich          immich          0.0.0.0/0               md5
+
