@@ -8,9 +8,9 @@ spec:
   selector:
     app: immich-db
   ports:
-  - port: 5432
-    name: postgres
-
+    - name: postgres
+      port: 5432
+      targetPort: 5432
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -32,86 +32,60 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-            - matchExpressions:
-              - key: kubernetes.io/hostname
-                operator: In
-                values:
-                - k3s-node1
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - k3s-node1
 
       securityContext:
         fsGroup: 999
         fsGroupChangePolicy: OnRootMismatch
 
       initContainers:
-      # Fix: Chown and chmod
-      - name: volume-permissions
-        image: busybox:1.36-glibc
-        command:
-        - sh
-        - -c
-        - |
-          echo "=== Setting up permissions ==="
-          mkdir -p /data/pgdata
-          echo "Before chown:"
-          ls -la /data/pgdata | head -5
-          
-          chown -R 999:999 /data/pgdata
-          chmod 700 /data/pgdata
-          
-          echo "After chown:"
-          ls -la /data/pgdata | head -5
-          echo "Setup complete"
-        securityContext:
-          runAsUser: 0
-        volumeMounts:
-        - name: data
-          mountPath: /data
-        resources:
-          requests:
-            cpu: 10m
-            memory: 32Mi
-
-      # Debug: After permissions fixed
-      - name: debug-pvc-after
-        image: busybox:1.36-glibc
-        command:
-        - sh
-        - -c
-        - |
-          echo "=== DEBUG: After permissions ==="
-          echo "UID/GID: $(id)"
-          echo "Contents:"
-          ls -la /data/pgdata 2>&1 | head -20
-          echo "Checking PG_VERSION:"
-          [ -f /data/pgdata/PG_VERSION ] && echo "✓ PG_VERSION exists" || echo "✗ PG_VERSION missing"
-          echo "Looking for any cluster markers:"
-          find /data/pgdata -name "PG_VERSION" -o -name "global" -o -name "pg_tblspc" 2>/dev/null
-        volumeMounts:
-        - name: data
-          mountPath: /data
-        resources:
-          requests:
-            cpu: 10m
-            memory: 32Mi
+        - name: volume-permissions
+          image: busybox:1.36-glibc
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 0
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "=== Setting up permissions ==="
+              mkdir -p /data/pgdata
+              chown -R 999:999 /data/pgdata
+              chmod 700 /data/pgdata
+              echo "=== Done ==="
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
 
       containers:
-      - name: postgresql
-        image: ghcr.io/immich-app/postgres:15-vectorchord0.5.3
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 5432
-          name: postgres
-        
-        securityContext:
-          runAsUser: 999
-          runAsNonRoot: true
-        
-        command: ["postgres"]
+        - name: postgresql
+          image: ghcr.io/immich-app/postgres:15-vectorchord0.5.3
+          imagePullPolicy: IfNotPresent
+
+          securityContext:
+            runAsUser: 999
+            runAsNonRoot: true
+
+          ports:
+            - name: postgres
+              containerPort: 5432
+
+          # Start Postgres directly with required preload libs for VectorChord.
+          command: ["postgres"]
           args:
             - "-c"
             - "shared_preload_libraries=vectors.so,vchord.so"
             - "-c"
-            - 'search_path="$user",public,vectors'
+            - "search_path=$user,public,vectors"
             - "-c"
             - "logging_collector=on"
             - "-c"
@@ -121,95 +95,66 @@ spec:
             - "-c"
             - "wal_compression=on"
 
-        # Debug: Check what Postgres sees at startup
-        command:
-        - sh
-        - -c
-        - |
-          echo "=== PostgreSQL startup debug ==="
-          PGDATA="${PGDATA:-/var/lib/postgresql/data/pgdata}"
-          export PGDATA
-          echo "PGDATA: $PGDATA"
-          echo "Contents of $PGDATA:"
-          ls -la $PGDATA 2>&1 | head -20
-          echo "PG_VERSION check:"
-          [ -f $PGDATA/PG_VERSION ] && echo "✓ Found" || echo "✗ Missing"
-          if [ ! -s "$PGDATA/PG_VERSION" ]; then
-            echo "PGDATA is empty - running initdb..."
-            initdb --username="${POSTGRES_USER}" --auth=trust --encoding=UTF8 --locale=C
-            echo "✓ initdb completed successfully"
-            # Start temporary server to run CREATE DATABASE
-            pg_ctl -D "$PGDATA" -w start
-            psql --username="$POSTGRES_USER" -d postgres -c "CREATE DATABASE immich;" || true
-            pg_ctl -D "$PGDATA" -m fast -w stop
-          else
-            echo ""
-            echo ">>> ✓ Cluster already initialized"
-            echo ">>> PG_VERSION: $(cat $PGDATA/PG_VERSION)"
-          fi
-          echo "Starting postgres..."
-          exec postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
-        
-        env:
-        - name: PGDATA
-          value: /var/lib/postgresql/data/pgdata
-        - name: POSTGRES_DB
-          value: immich
-        - name: POSTGRES_USER
-          value: immich
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: immich-db-secret
-              key: password
-        
-        volumeMounts:
-        - name: data
-          mountPath: /var/lib/postgresql/data
-        - name: wal-archive
-          mountPath: /wal-archive
-        - name: postgresql-conf
-          mountPath: /etc/postgresql
-        
-        livenessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - pg_isready -U immich -d immich
-          initialDelaySeconds: 60
-          periodSeconds: 30
-          timeoutSeconds: 5
-          failureThreshold: 5
-        
-        readinessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - pg_isready -U immich -d immich
-          initialDelaySeconds: 30
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 2
-        
-        resources:
-          requests:
-            cpu: 250m
-            memory: 512Mi
-          limits:
-            cpu: 1000m
-            memory: 2Gi
-      
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_DB
+              value: immich
+            - name: POSTGRES_USER
+              value: immich
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: immich-db-secret
+                  key: password
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: wal-archive
+              mountPath: /wal-archive
+            - name: postgresql-conf
+              mountPath: /etc/postgresql
+
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_isready -U immich -d immich
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_isready -U immich -d immich
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+
       volumes:
-      - name: data
-        persistentVolumeClaim:
-          claimName: immich-db-primary
-      - name: wal-archive
-        persistentVolumeClaim:
-          claimName: immich-db-wal-archive
-      - name: postgresql-conf
-        configMap:
-          name: postgresql-config
-          defaultMode: 0644
+        - name: data
+          persistentVolumeClaim:
+            claimName: immich-db-primary
+        - name: wal-archive
+          persistentVolumeClaim:
+            claimName: immich-db-wal-archive
+        - name: postgresql-conf
+          configMap:
+            name: postgresql-config
+            defaultMode: 0644
 
