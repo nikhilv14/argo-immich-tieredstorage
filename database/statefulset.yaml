@@ -51,6 +51,7 @@ spec:
         - -c
         - |
           echo "=== Setting up permissions ==="
+          mkdir -p /data/pgdata
           echo "Before chown:"
           ls -la /data/pgdata | head -5
           
