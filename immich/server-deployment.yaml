@@ -38,18 +38,18 @@ spec:
             - secretRef:
                 name: immich-secret
           ports:
-            - containerPort: 3001
+            - containerPort: 2283
               name: http
           livenessProbe:
             httpGet:
               path: /api/server-info/ping
-              port: 3001
+              port: 2283
             initialDelaySeconds: 60
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /api/server-info/ping
-              port: 3001
+              port: 2283
             initialDelaySeconds: 10
             periodSeconds: 10
           volumeMounts:
