@@ -99,7 +99,7 @@ spec:
             - name: wal-archive
               mountPath: /wal-archive
             - name: postgresql-conf
-              mountPath: /etc/postgresql
+              mountPath: /etc/postgresql/postgresql.conf
               subPath: postgresql.conf
             - name: postgresql-conf
               mountPath: /etc/postgresql/pg_hba.conf
