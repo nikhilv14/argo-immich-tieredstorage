@@ -1,0 +1,23 @@
+iapiVersion: v1
+kind: ConfigMap
+metadata:
+  name: immich-config
+  namespace: immich
+data:
+  # Database Connection
+  DB_HOSTNAME: "immich-db"
+  DB_USERNAME: "immich"
+  DB_DATABASE_NAME: "immich"
+  DB_PORT: "5432"
+
+  # Redis Connection
+  REDIS_HOSTNAME: "immich-redis"
+  REDIS_PORT: "6379"
+  
+  # Application Settings
+  NODE_ENV: "production"
+  IMMICH_ENV: "production"
+  
+  # Folder paths (internal container paths)
+  UPLOAD_LOCATION: "/usr/src/app/upload"
+  IMMICH_MACHINE_LEARNING_URL: "http://immich-machine-learning:3003"
