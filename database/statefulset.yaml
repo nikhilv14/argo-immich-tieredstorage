@@ -96,7 +96,7 @@ spec:
 
       containers:
       - name: postgresql
-        image: postgres:15-alpine
+        image: ghcr.io/immich-app/postgres:15-vectorchord0.5.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5432
