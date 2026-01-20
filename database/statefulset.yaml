@@ -83,7 +83,7 @@ spec:
           command: ["postgres"]
           args:
             - "-c"
-            - "shared_preload_libraries=vectors.so,vchord.so"
+            - "shared_preload_libraries=vchord.so"
             - "-c"
             - "search_path=$user,public,vectors"
             - "-c"
