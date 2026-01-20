@@ -52,13 +52,13 @@ spec:
         - |
           echo "=== Setting up permissions ==="
           echo "Before chown:"
-          ls -la /data/ | head -5
+          ls -la /data/pgdata | head -5
           
-          chown -R 70:70 /data
-          chmod 700 /data
+          chown -R 70:70 /data/pgdata
+          chmod 700 /data/pgdata
           
           echo "After chown:"
-          ls -la /data/ | head -5
+          ls -la /data/pgdata | head -5
           echo "Setup complete"
         securityContext:
           runAsUser: 0
@@ -80,11 +80,11 @@ spec:
           echo "=== DEBUG: After permissions ==="
           echo "UID/GID: $(id)"
           echo "Contents:"
-          ls -la /data/ 2>&1 | head -20
+          ls -la /data/pgdata 2>&1 | head -20
           echo "Checking PG_VERSION:"
-          [ -f /data/PG_VERSION ] && echo "✓ PG_VERSION exists" || echo "✗ PG_VERSION missing"
+          [ -f /data/pgdata/PG_VERSION ] && echo "✓ PG_VERSION exists" || echo "✗ PG_VERSION missing"
           echo "Looking for any cluster markers:"
-          find /data -name "PG_VERSION" -o -name "global" -o -name "pg_tblspc" 2>/dev/null
+          find /data/pgdata -name "PG_VERSION" -o -name "global" -o -name "pg_tblspc" 2>/dev/null
         volumeMounts:
         - name: data
           mountPath: /data
