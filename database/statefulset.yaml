@@ -134,11 +134,13 @@ spec:
         - -c
         - |
           echo "=== PostgreSQL startup debug ==="
-          echo "PGDATA env: ${PGDATA:-not set}"
-          echo "Contents of /var/lib/postgresql/data:"
-          ls -la /var/lib/postgresql/data/ 2>&1 | head -20
+          PGDATA="${PGDATA:-/var/lib/postgresql/data/pgdata}"
+          export PGDATA
+          echo "PGDATA: $PGDATA"
+          echo "Contents of $PGDATA:"
+          ls -la $PGDATA 2>&1 | head -20
           echo "PG_VERSION check:"
-          [ -f /var/lib/postgresql/data/PG_VERSION ] && echo "✓ Found" || echo "✗ Missing"
+          [ -f $PGDATA/PG_VERSION ] && echo "✓ Found" || echo "✗ Missing"
           if [ ! -s "$PGDATA/PG_VERSION" ]; then
             echo "PGDATA is empty - running initdb..."
             initdb --username="${POSTGRES_USER}" --auth=trust --encoding=UTF8 --locale=C
@@ -152,6 +154,8 @@ spec:
           exec postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
         
         env:
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
         - name: POSTGRES_DB
           value: immich
         - name: POSTGRES_USER
