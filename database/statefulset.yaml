@@ -39,7 +39,7 @@ spec:
                 - k3s-node1
 
       securityContext:
-        fsGroup: 70
+        fsGroup: 999
         fsGroupChangePolicy: OnRootMismatch
 
       initContainers:
@@ -55,7 +55,7 @@ spec:
           echo "Before chown:"
           ls -la /data/pgdata | head -5
           
-          chown -R 70:70 /data/pgdata
+          chown -R 999:999 /data/pgdata
           chmod 700 /data/pgdata
           
           echo "After chown:"
@@ -103,7 +103,7 @@ spec:
           name: postgres
         
         securityContext:
-          runAsUser: 70
+          runAsUser: 999
           runAsNonRoot: true
         
         # Debug: Check what Postgres sees at startup
