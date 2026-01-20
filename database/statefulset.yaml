@@ -79,21 +79,6 @@ spec:
             - name: postgres
               containerPort: 5432
 
-          # Start Postgres directly with required preload libs for VectorChord.
-          command: ["postgres"]
-          args:
-            - "-c"
-            - "shared_preload_libraries=vchord.so"
-            - "-c"
-            - "search_path=$user,public,vectors"
-            - "-c"
-            - "logging_collector=on"
-            - "-c"
-            - "max_wal_size=2GB"
-            - "-c"
-            - "shared_buffers=512MB"
-            - "-c"
-            - "wal_compression=on"
 
           env:
             - name: PGDATA
@@ -115,6 +100,10 @@ spec:
               mountPath: /wal-archive
             - name: postgresql-conf
               mountPath: /etc/postgresql
+              subPath: postgresql.conf
+            - name: postgresql-conf
+              mountPath: /etc/postgresql/pg_hba.conf
+              subPath: pg_hba.conf
 
           livenessProbe:
             exec:

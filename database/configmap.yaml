@@ -5,6 +5,7 @@ metadata:
   namespace: immich
 data:
   postgresql.conf: |
+    shared_preload_libraries = 'vchord.so'
     listen_addresses = '*'
     port = 5432
     
