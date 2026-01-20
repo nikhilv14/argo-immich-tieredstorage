@@ -1,0 +1,14 @@
+# storage/redis-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-redis
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ssd-cache # Ensure this matches your proven fast storage class
+  resources:
+    requests:
+      storage: 2Gi
+
