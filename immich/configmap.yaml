@@ -21,3 +21,5 @@ data:
   # Folder paths (internal container paths)
   UPLOAD_LOCATION: "/usr/src/app/upload"
   IMMICH_MACHINE_LEARNING_URL: "http://immich-machine-learning:3003"
+  
+  TZ: "Europe/Dublin"

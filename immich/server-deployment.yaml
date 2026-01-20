@@ -26,6 +26,12 @@ spec:
         - name: immich-server
           image: ghcr.io/immich-app/immich-server:v2.4.1  # Check for latest version
           imagePullPolicy: IfNotPresent
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: immich-db-secret  # The secret name you confirmed
+                  key: password
           envFrom:
             - configMapRef:
                 name: immich-config
@@ -49,14 +55,8 @@ spec:
           volumeMounts:
             - name: immich-upload
               mountPath: /usr/src/app/upload
-            - name: immich-localtime
-              mountPath: /etc/localtime
-              readOnly: true
+
       volumes:
         - name: immich-upload
           persistentVolumeClaim:
             claimName: immich-upload
-        - name: immich-localtime
-          hostPath:
-            path: /etc/localtime
-            type: File
