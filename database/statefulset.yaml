@@ -43,29 +43,6 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
 
       initContainers:
-      # Debug: Check PVC before operations
-      - name: debug-pvc-before
-        image: busybox:1.36-glibc
-        command:
-        - sh
-        - -c
-        - |
-          echo "=== DEBUG: Before operations ==="
-          echo "UID/GID: $(id)"
-          echo "PVC mount point /data contents:"
-          ls -la /data/ 2>&1 | head -20
-          echo "PVC disk usage:"
-          du -sh /data 2>&1
-          echo "PVC permissions:"
-          stat /data 2>&1 | grep -E "Access|Uid"
-        volumeMounts:
-        - name: data
-          mountPath: /data
-        resources:
-          requests:
-            cpu: 10m
-            memory: 32Mi
-
       # Fix: Chown and chmod
       - name: volume-permissions
         image: busybox:1.36-glibc
@@ -145,6 +122,10 @@ spec:
             echo "PGDATA is empty - running initdb..."
             initdb --username="${POSTGRES_USER}" --auth=trust --encoding=UTF8 --locale=C
             echo "✓ initdb completed successfully"
+            # Start temporary server to run CREATE DATABASE
+            pg_ctl -D "$PGDATA" -w start
+            psql --username="$POSTGRES_USER" -d postgres -c "CREATE DATABASE immich;" || true
+            pg_ctl -D "$PGDATA" -m fast -w stop
           else
             echo ""
             echo ">>> ✓ Cluster already initialized"
