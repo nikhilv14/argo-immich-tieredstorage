@@ -106,6 +106,21 @@ spec:
           runAsUser: 999
           runAsNonRoot: true
         
+        command: ["postgres"]
+          args:
+            - "-c"
+            - "shared_preload_libraries=vectors.so,vchord.so"
+            - "-c"
+            - 'search_path="$user",public,vectors'
+            - "-c"
+            - "logging_collector=on"
+            - "-c"
+            - "max_wal_size=2GB"
+            - "-c"
+            - "shared_buffers=512MB"
+            - "-c"
+            - "wal_compression=on"
+
         # Debug: Check what Postgres sees at startup
         command:
         - sh
