@@ -24,13 +24,143 @@ spec:
         fsGroup: 1000
         supplementalGroups: [109, 44] # 109 is 'render' and group ID (44 is usually 'video')
 
+
       initContainers:
-        - name: init-permissions
+        - name: migrate-to-tiered-storage
           image: alpine:3.19
-          command: ["sh", "-c", "mkdir -p /upload/library /upload/upload /upload/profile /upload/thumbs /upload/encoded-video && chown -R 1000:1000 /upload"]
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "========== Starting tiered storage migration (subPath mode) =========="
+              
+              # Verify source volume (immich-upload with all current data in subdirectories)
+              if [ ! -d "/source-upload" ]; then
+                echo "ERROR: Source upload directory not found at /source-upload"
+                exit 1
+              fi
+              echo "✓ Source volume mounted at /source-upload"
+              
+              # List what we're working with
+              echo "Current structure in /source-upload:"
+              ls -lah /source-upload/
+              
+              # Copy library to destination
+              echo ""
+              echo "Step 1: Copying library/ to library subPath..."
+              if [ -d "/source-upload/library" ]; then
+                mkdir -p /dest-library
+                if [ "$(ls -A /source-upload/library 2>/dev/null)" ]; then
+                  cp -av /source-upload/library/* /dest-library/ 2>/dev/null || true
+                  echo "✓ Library copied ($(du -sh /dest-library | cut -f1))"
+                else
+                  echo "ℹ Library directory exists but is empty"
+                fi
+              else
+                echo "ℹ Library directory doesn't exist in source"
+              fi
+              
+              # Copy profile to destination
+              echo ""
+              echo "Step 2: Copying profile/ to profile subPath..."
+              if [ -d "/source-upload/profile" ]; then
+                mkdir -p /dest-profile
+                if [ "$(ls -A /source-upload/profile 2>/dev/null)" ]; then
+                  cp -av /source-upload/profile/* /dest-profile/ 2>/dev/null || true
+                  echo "✓ Profile copied ($(du -sh /dest-profile | cut -f1))"
+                else
+                  echo "ℹ Profile directory exists but is empty"
+                fi
+              else
+                echo "ℹ Profile directory doesn't exist in source"
+              fi
+              
+              # Copy thumbs to cache
+              echo ""
+              echo "Step 3: Copying thumbs/ to cache subPath..."
+              if [ -d "/source-upload/thumbs" ]; then
+                mkdir -p /dest-cache
+                if [ "$(ls -A /source-upload/thumbs 2>/dev/null)" ]; then
+                  cp -av /source-upload/thumbs/* /dest-cache/ 2>/dev/null || true
+                  echo "✓ Thumbs copied ($(du -sh /dest-cache | cut -f1))"
+                else
+                  echo "ℹ Thumbs directory exists but is empty"
+                fi
+              else
+                echo "ℹ Thumbs directory doesn't exist in source"
+              fi
+              
+              # Copy encoded-video to cache (optional, share tier)
+              echo ""
+              echo "Step 4: Copying encoded-video/ to cache/encoded-video..."
+              if [ -d "/source-upload/encoded-video" ]; then
+                mkdir -p /dest-cache/encoded-video
+                if [ "$(ls -A /source-upload/encoded-video 2>/dev/null)" ]; then
+                  cp -av /source-upload/encoded-video/* /dest-cache/encoded-video/ 2>/dev/null || true
+                  echo "✓ Encoded-video copied"
+                fi
+              fi
+              
+              # Ensure upload directory structure
+              echo ""
+              echo "Step 5: Ensuring upload staging structure..."
+              mkdir -p /dest-upload/upload
+              mkdir -p /dest-upload/backups
+              if [ -d "/source-upload/upload" ] && [ "$(ls -A /source-upload/upload 2>/dev/null)" ]; then
+                cp -av /source-upload/upload/* /dest-upload/upload/ 2>/dev/null || true
+                echo "✓ Upload staging copied"
+              fi
+              
+              # Create .immich marker files in ALL subdirectories
+              echo ""
+              echo "Step 6: Creating .immich marker files..."
+              MARKER_CONTENT='{"version":1,"timestamp":"'$(date -u +%s)'"}'
+              
+              for dir in /dest-upload/upload /dest-library /dest-cache /dest-profile; do
+                mkdir -p "$dir"
+                echo "$MARKER_CONTENT" > "$dir/.immich"
+                chmod 644 "$dir/.immich"
+                echo "✓ Created $dir/.immich"
+              done
+              
+              # Also create in sync-queue if it exists
+              if [ -d "/dest-sync-queue" ]; then
+                mkdir -p /dest-sync-queue
+                echo "$MARKER_CONTENT" > /dest-sync-queue/.immich
+                echo "✓ Created /dest-sync-queue/.immich"
+              fi
+              
+              echo ""
+              echo "========== Migration completed successfully =========="
+              echo ""
+              echo "Final state:"
+              echo "  /dest-upload: $(du -sh /dest-upload 2>/dev/null | cut -f1)"
+              echo "  /dest-library: $(du -sh /dest-library 2>/dev/null | cut -f1)"
+              echo "  /dest-cache: $(du -sh /dest-cache 2>/dev/null | cut -f1)"
+              echo "  /dest-profile: $(du -sh /dest-profile 2>/dev/null | cut -f1)"
+              echo ""
+              echo "Marker files verification:"
+              find /dest-* -name ".immich" -type f 2>/dev/null | head -10
+    
           volumeMounts:
+            # Source: existing immich-upload (contains all current data)
             - name: immich-upload
-              mountPath: /upload
+              mountPath: /source-upload
+            
+            # Destinations: new PVCs
+            - name: immich-upload
+              mountPath: /dest-upload
+              subPath: ""  # Root of the PVC for /upload and /backups
+            - name: immich-library
+              mountPath: /dest-library
+            - name: immich-cache
+              mountPath: /dest-cache
+            - name: immich-profile
+              mountPath: /dest-profile
+            - name: immich-sync-queue
+              mountPath: /dest-sync-queue
+
       containers:
         - name: immich-server
           image: ghcr.io/immich-app/immich-server:v2.4.1  # Check for latest version
@@ -73,15 +203,24 @@ spec:
             - name: dev-dri
               mountPath: /dev/dri
             - name: immich-upload
-              mountPath: /usr/src/app/upload
-            - name: immich-library
-              mountPath: /usr/src/app/upload/library/originals
+              mountPath: /usr/src/app/upload/upload
+              subpath: "upload"
+            - name: immich-upload
+              mountPath: /usr/src/app/upload/backups
+              subPath: "backups"  # Root of upload volume for initial structure
+            - name: immich-upload
+              mountPath: /usr/src/app/upload/encoded-video
+              subPath: "encoded-video"
+            #Tiered storage
             - name: immich-cache
               mountPath: /usr/src/app/upload/thumbs
+            - name: immich-library
+              mountPath: /usr/src/app/upload/library
             - name: immich-profile
               mountPath: /usr/src/app/upload/profile
             - name: immich-sync-queue
               mountPath: /usr/src/app/upload/sync-queue
+
 
       volumes:
         - name: dev-dri
