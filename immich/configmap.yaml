@@ -18,6 +18,10 @@ data:
   NODE_ENV: "production"
   IMMICH_ENV: "production"
   
+  # Configure Immich to listen on all interfaces
+  IMMICH_HOST: "0.0.0.0"
+  IMMICH_PORT: "2283"
+  
   # Folder paths (internal container paths)
   UPLOAD_LOCATION: "/usr/src/app/upload"
   IMMICH_MACHINE_LEARNING_URL: "http://immich-machine-learning:3003"
@@ -30,9 +34,6 @@ data:
     set -e
     
     # Configuration
-    # We use localhost because containers in the same POD share the network namespace.
-    # Accessing via Ingress (immich.home) would require hair-pinning out and back in, 
-    # which relies on DNS and Ingress Controller availability. Localhost is safer/faster.
     API_URL="http://localhost:2283/api"
     
     # WAITING FOR SERVER START
@@ -55,7 +56,6 @@ data:
              echo "[$(date)] Triggering Storage Template Migration Job..."
              
              if [ -n "$IMMICH_API_KEY" ]; then
-                 # -f fails silently on server errors, -S shows error if fails
                  if curl -f -X POST "$API_URL/jobs/storage-template-migration" \
                       -H "x-api-key: $IMMICH_API_KEY" \
                       -H "Content-Type: application/json" \
@@ -68,10 +68,8 @@ data:
                  echo "No API Key found. Skipping automatic trigger."
              fi
              
-             # Sleep for an hour to avoid repeated triggers
              sleep 3600
         fi
         
-        # Check every 30 minutes
         sleep 1800
     done
