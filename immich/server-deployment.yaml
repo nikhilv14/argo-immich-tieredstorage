@@ -232,7 +232,7 @@ spec:
             - /bin/sh
             - -c
             - |
-              apk add --no-cache rsync inotify-tools su-exec && \
+              apk add --no-cache rsync inotify-tools findutils su-exec && \
               exec su-exec 1000:1000 /scripts/sync-daemon.sh
           volumeMounts:
             - name: immich-upload
