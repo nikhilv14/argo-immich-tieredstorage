@@ -38,7 +38,6 @@ data:
     
     # WAITING FOR SERVER START
     echo "Waiting for Immich Server..."
-    # Loop until localhost port 2283 is open
     while ! nc -z localhost 2283; do   
       sleep 5
     done
@@ -56,7 +55,10 @@ data:
              echo "[$(date)] Triggering Storage Template Migration Job..."
              
              if [ -n "$IMMICH_API_KEY" ]; then
-                 if curl -f -X POST "$API_URL/jobs/storage-template-migration" \
+                 # Endpoint for triggering jobs is PUT /api/jobs/{jobId}
+                 # jobID for storage template migration is 'storage-template-migration'
+                 
+                 if curl -f -X PUT "$API_URL/jobs/storage-template-migration" \
                       -H "x-api-key: $IMMICH_API_KEY" \
                       -H "Content-Type: application/json" \
                       -d '{"command":"start"}'; then
