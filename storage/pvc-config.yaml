@@ -9,7 +9,7 @@ spec:
   storageClassName: nas-rwx
   resources:
     requests:
-      storage: 500Gi
+      storage: 2Ti
 
 ---
 apiVersion: v1
@@ -33,11 +33,11 @@ metadata:
   namespace: immich
 spec:
   accessModes:
-    - ReadWriteOnce
-  storageClassName: ssd-cache
+    - ReadWriteMany
+  storageClassName: nas-rwx
   resources:
     requests:
-      storage: 150Gi
+      storage: 500Gi
 
 ---
 apiVersion: v1
