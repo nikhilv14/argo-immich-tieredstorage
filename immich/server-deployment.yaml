@@ -179,6 +179,13 @@ spec:
                 secretKeyRef:
                   name: immich-db-secret  # The secret name you confirmed
                   key: password
+            # API Key for Job Scheduler - To be populated by user via Secret
+            - name: IMMICH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: immich-secret
+                  key: api_key
+                  optional: true
           envFrom:
             - configMapRef:
                 name: immich-config
@@ -222,6 +229,29 @@ spec:
             - name: immich-sync-queue
               mountPath: /usr/src/app/upload/sync-queue
 
+        # Sidecar: Job Scheduler
+        # Native Immich doesn't schedule storage migration automatically
+        # This sidecar triggers it via API
+        - name: job-scheduler
+          image: alpine:3.19
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache curl netcat-openbsd && \
+              /scripts/job-scheduler.sh
+          env:
+             - name: IMMICH_API_KEY
+               valueFrom:
+                 secretKeyRef:
+                   name: immich-secret
+                   key: api_key
+                   optional: true
+          volumeMounts:
+            - name: scripts-volume
+              mountPath: /scripts
+
+
       volumes:
         - name: dev-dri
           hostPath:
@@ -241,3 +271,7 @@ spec:
         - name: immich-sync-queue
           persistentVolumeClaim:
             claimName: immich-sync-queue
+        - name: scripts-volume
+          configMap:
+            name: immich-config
+            defaultMode: 0755
