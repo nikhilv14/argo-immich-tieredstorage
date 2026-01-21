@@ -222,46 +222,6 @@ spec:
             - name: immich-sync-queue
               mountPath: /usr/src/app/upload/sync-queue
 
-        # Sidecar 1: Sync Daemon
-        # Watches SSD upload folder and syncs to NAS library
-        - name: sync-daemon
-          image: alpine:3.19
-          securityContext:
-            runAsUser: 0
-          command:
-            - /bin/sh
-            - -c
-            - |
-              apk add --no-cache rsync inotify-tools findutils su-exec && \
-              exec su-exec 1000:1000 /scripts/sync-daemon.sh
-          volumeMounts:
-            - name: immich-upload
-              mountPath: /usr/src/app/upload/upload
-              subPath: "upload"
-            - name: immich-library
-              mountPath: /usr/src/app/upload/library
-            - name: immich-sync-queue
-              mountPath: /usr/src/app/upload/sync-queue
-            - name: scripts-volume
-              mountPath: /scripts
-
-        # Sidecar 2: Resilience Monitor
-        # Monitors NAS availability and logs status
-        - name: resilience-monitor
-          image: alpine:3.19
-          command:
-            - /bin/sh
-            - -c
-            - /scripts/resilience-monitor.sh
-          volumeMounts:
-            - name: immich-library
-              mountPath: /usr/src/app/upload/library
-            - name: immich-sync-queue
-              mountPath: /usr/src/app/upload/sync-queue
-            - name: scripts-volume
-              mountPath: /scripts
-
-
       volumes:
         - name: dev-dri
           hostPath:
@@ -281,7 +241,3 @@ spec:
         - name: immich-sync-queue
           persistentVolumeClaim:
             claimName: immich-sync-queue
-        - name: scripts-volume
-          configMap:
-            name: immich-config
-            defaultMode: 0755
