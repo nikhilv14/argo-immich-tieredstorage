@@ -15,6 +15,15 @@ spec:
       labels:
         app.kubernetes.io/name: immich-server
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: k3s-node1
+      # 2. GRANT GPU PERMISSIONS
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        supplementalGroups: [109, 44] # 109 is 'render' and group ID (44 is usually 'video')
+
       initContainers:
         - name: init-permissions
           image: alpine:3.19
@@ -27,6 +36,9 @@ spec:
           image: ghcr.io/immich-app/immich-server:v2.4.1  # Check for latest version
           imagePullPolicy: IfNotPresent
           env:
+            # CONFIGURE INTEL DRIVER
+            - name: LIBVA_DRIVER_NAME
+              value: "iHD"  # Crucial for N97/Alder Lake
             - name: IMMICH_HOST
               valueFrom:
                 fieldRef:
@@ -57,10 +69,16 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
           volumeMounts:
+            # MOUNT GPU DEVICE
+            - name: dev-dri
+              mountPath: /dev/dri
             - name: immich-upload
               mountPath: /usr/src/app/upload
 
       volumes:
+        - name: dev-dri
+          hostPath:
+            path: /dev/dri
         - name: immich-upload
           persistentVolumeClaim:
             claimName: immich-upload

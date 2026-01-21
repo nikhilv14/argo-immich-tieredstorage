@@ -15,10 +15,23 @@ spec:
       labels:
         app.kubernetes.io/name: immich-machine-learning
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: k3s-node1
+
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        supplementalGroups: [109, 44] # 109 is 'render'and 44 is group ID
+
       containers:
         - name: immich-machine-learning
           image: ghcr.io/immich-app/immich-machine-learning:v2.4.1
           imagePullPolicy: IfNotPresent
+          env:
+            # ENABLE OPENVINO
+            - name: ACCELERATORS
+              value: "openvino"
           envFrom:
             - configMapRef:
                 name: immich-config
@@ -30,9 +43,15 @@ spec:
           volumeMounts:
             - name: model-cache
               mountPath: /cache
+            - name: dev-dri
+              mountPath: /dev/dri
       volumes:
         - name: model-cache
           emptyDir: {}  # or use a PVC if you want to persist downloaded models
+        - name: dev-dri
+          hostPath:
+            path: /dev/dri
+
 ---
 apiVersion: v1
 kind: Service
