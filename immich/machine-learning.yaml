@@ -32,6 +32,8 @@ spec:
             # ENABLE OPENVINO
             - name: ACCELERATORS
               value: "openvino"
+            - name: MPLCONFIGDIR
+              value: "/cache/matplotlib"
           envFrom:
             - configMapRef:
                 name: immich-config
