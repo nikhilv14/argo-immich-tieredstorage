@@ -29,71 +29,78 @@ data:
     #!/bin/sh
     set -e
     
-    # Install dependencies
-    # apk add --no-cache rsync inotify-tools
-    # (Moved to container command to avoid re-installing every loop if script restarts, 
-    # but for simplicity in this script we assume they are present or installed by command)
+    # Dependencies: rsync, inotify-tools, findutils
     
     UPLOAD_DIR="/usr/src/app/upload/upload"
     NAS_DIR="/usr/src/app/upload/library/new-uploads"
     QUEUE_LOG="/usr/src/app/upload/sync-queue/sync.log"
     LOCK_FILE="/tmp/sync.lock"
     
+    # CONFIGURATION
+    # Cache Duration: How long files stay on SSD for fast access/thumbnails
+    # Set to 0 for immediate removal (not recommended for cache goal)
+    CACHE_MINUTES=1440  # 24 hours
+    
     echo "Starting Sync Daemon..."
     echo "Watching $UPLOAD_DIR"
     echo "Syncing to $NAS_DIR"
+    echo "Cache retention: $CACHE_MINUTES minutes"
     
-    # Ensure sync queue directory exists
     mkdir -p "$(dirname "$QUEUE_LOG")"
     
-    perform_sync() {
+    perform_sync_and_cleanup() {
         if [ -f "$LOCK_FILE" ]; then
-            echo "Sync already in progress, skipping."
+            echo "Sync in progress, skipping."
             return
         fi
         
         touch "$LOCK_FILE"
         
-        # Check if NAS is reachable (simple directory check)
+        # 1. CHECK NAS AVAILABILITY
         if timeout 5 ls -d "$(dirname "$NAS_DIR")" >/dev/null 2>&1; then
-            echo "[$(date)] NAS available. Starting sync..." >> "$QUEUE_LOG"
-            
-            # Ensure destination exists
             mkdir -p "$NAS_DIR" 2>/dev/null || true
             
-            # Rsync command
-            # -a: archive mode
-            # -v: verbose
-            # --ignore-existing: skip files that exist on receiver
-            # --remove-source-files: OPTIONAL - Guide says "Copies", implies retention on SSD cache?
-            # Guide says: "Scenario A: ... /data/upload (SSD) -> /data/library (NAS) ... Recent in cache on SSD"
-            # So we DO NOT remove source files. We keep them on SSD as cache.
-            
+            # 2. SYNC (COPY)
+            # We use copy (not move) first to ensure data safety on NAS
+            # We do NOT use --remove-source-files here because we want to respect the Cache Duration
+            echo "[$(date)] Starting Sync..." >> "$QUEUE_LOG"
             if rsync -av --ignore-existing "$UPLOAD_DIR/" "$NAS_DIR/"; then
-                echo "[$(date)] Sync completed successfully." >> "$QUEUE_LOG"
+                echo "[$(date)] Sync successful." >> "$QUEUE_LOG"
+                
+                # 3. CLEANUP (EVICTION)
+                # Remove files from SSD that are:
+                # a) Older than CACHE_MINUTES
+                # b) Safely exist on NAS (Verified by rsync success roughly, but strictly we assume success)
+                # WARNING: Immich Database must expect files to move to Library via Storage Templates
+                # for this to not break image viewing. 
+                
+                echo "[$(date)] Running Cache Eviction (Files > $CACHE_MINUTES mins)..." >> "$QUEUE_LOG"
+                # Find files in UPLOAD_DIR older than X minutes and delete them
+                # Mindepth 1 to avoid deleting the root folder itself
+                find "$UPLOAD_DIR" -mindepth 1 -type f -mmin +"$CACHE_MINUTES" -delete
+                
+                # Remove empty directories left behind
+                find "$UPLOAD_DIR" -mindepth 1 -type d -empty -delete
+                
             else
-                echo "[$(date)] Sync failed with error code $?." >> "$QUEUE_LOG"
+                echo "[$(date)] Sync failed." >> "$QUEUE_LOG"
             fi
         else
-            echo "[$(date)] NAS unavailable. Queueing uploads on SSD." >> "$QUEUE_LOG"
+            echo "[$(date)] NAS unavailable. Skipping sync/cleanup." >> "$QUEUE_LOG"
         fi
         
         rm -f "$LOCK_FILE"
     }
     
-    # Initial sync on startup
-    perform_sync
+    # Initial run
+    perform_sync_and_cleanup
     
-    # Watch for new files
-    # -m: monitor
-    # -r: recursive
-    # -e: events (close_write, moved_to) - triggered when file upload finishes
+    # Watch Loop
     inotifywait -m -r -e close_write,moved_to --format '%w%f' "$UPLOAD_DIR" | while read FILE
     do
-        echo "Detected new file: $FILE"
-        # Wait a brief moment for batched uploads or file locks
-        sleep 2
-        perform_sync
+        # Debounce/Throttle slightly
+        sleep 5
+        perform_sync_and_cleanup
     done
 
   resilience-monitor.sh: |
@@ -106,25 +113,20 @@ data:
     echo "Starting Resilience Monitor..."
     echo "Monitoring $NAS_MOUNT"
     
-    # Ensure log directory exists
     mkdir -p "$(dirname "$LOG_FILE")"
     
     while true; do
         TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
         
-        # Check if we can list the NAS directory
         if timeout 10 ls -d "$NAS_MOUNT" >/dev/null 2>&1; then
-            # Check if it was previously unavailable to log recovery
             if [ -f "$STATUS_FILE" ] && grep -q "UNAVAILABLE" "$STATUS_FILE"; then
                 echo "[$TIMESTAMP] NAS Recovery Detected. Status: AVAILABLE" >> "$LOG_FILE"
             fi
-            
             echo "AVAILABLE" > "$STATUS_FILE"
         else
             echo "[$TIMESTAMP] NAS Unavailable. Status: UNAVAILABLE" >> "$LOG_FILE"
             echo "UNAVAILABLE" > "$STATUS_FILE"
         fi
         
-        # Check every 30 seconds
         sleep 30
     done
