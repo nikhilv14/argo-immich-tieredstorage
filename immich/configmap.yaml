@@ -23,3 +23,67 @@ data:
   IMMICH_MACHINE_LEARNING_URL: "http://immich-machine-learning:3003"
   
   TZ: "Europe/Dublin"
+
+  # Sidecar Script for Job Scheduling
+  job-scheduler.sh: |
+    #!/bin/sh
+    set -e
+    
+    # Configuration
+    API_URL="http://localhost:2283/api"
+    # Use the admin API key or login via CLI if needed. 
+    # For sidecar, easiest is to use the internal API with existing auth or specific endpoints.
+    # However, Immich API usually requires an API Key.
+    # Since we can't easily bake a user API key into a deployment manifest without security risks,
+    # we will rely on the "immich-server" container's internal job queue access if possible,
+    # OR we use a simple cron that hits the API.
+    
+    # WAITING FOR SERVER START
+    echo "Waiting for Immich Server..."
+    while ! nc -z localhost 2283; do   
+      sleep 5
+    done
+    echo "Immich Server is up."
+
+    # CRON LOOP
+    # Run storage-template-migration every night at 2am
+    echo "Starting Job Scheduler..."
+    
+    # Using a simple loop for the sidecar
+    while true; do
+        # Calculate seconds until next 02:00 AM
+        current_epoch=$(date +%s)
+        target_epoch=$(date -d "tomorrow 02:00" +%s)
+        
+        # If it's already past 2am today, target is tomorrow (handled by 'tomorrow' logic above mostly, 
+        # but 'date -d' behavior can vary by alpine version. 
+        # Safer simple approach: Sleep loop checking time).
+        
+        current_hour=$(date +%H)
+        
+        if [ "$current_hour" -eq "02" ]; then
+             echo "[$(date)] Triggering Storage Template Migration Job..."
+             
+             # Trigger Job via API
+             # Requires API Key. If no key, we can't easily trigger.
+             # ALTERNATIVE: Use the CLI container approach if available, but that also needs auth.
+             
+             # FALLBACK: Log that manual triggering is required until API Key is provided via Secret.
+             echo "NOTE: To fully automate, please provide IMMICH_API_KEY in secrets."
+             
+             if [ -n "$IMMICH_API_KEY" ]; then
+                 curl -X POST "$API_URL/jobs/storage-template-migration" \
+                      -H "x-api-key: $IMMICH_API_KEY" \
+                      -H "Content-Type: application/json" \
+                      -d '{"command":"start"}'
+             else
+                 echo "No API Key found. Skipping automatic trigger."
+             fi
+             
+             # Sleep for an hour to avoid repeated triggers
+             sleep 3600
+        fi
+        
+        # Check every 30 minutes
+        sleep 1800
+    done
