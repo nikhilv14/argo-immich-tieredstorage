@@ -74,6 +74,14 @@ spec:
               mountPath: /dev/dri
             - name: immich-upload
               mountPath: /usr/src/app/upload
+            - name: immich-library
+              mountPath: /usr/src/app/upload/library/originals
+            - name: immich-cache
+              mountPath: /usr/src/app/upload/thumbs
+            - name: immich-profile
+              mountPath: /usr/src/app/upload/profile
+            - name: immich-sync-queue
+              mountPath: /usr/src/app/upload/sync-queue
 
       volumes:
         - name: dev-dri
@@ -82,3 +90,15 @@ spec:
         - name: immich-upload
           persistentVolumeClaim:
             claimName: immich-upload
+        - name: immich-library
+          persistentVolumeClaim:
+            claimName: immich-library
+        - name: immich-cache
+          persistentVolumeClaim:
+            claimName: immich-cache
+        - name: immich-profile
+          persistentVolumeClaim:
+            claimName: immich-profile
+        - name: immich-sync-queue
+          persistentVolumeClaim:
+            claimName: immich-sync-queue
