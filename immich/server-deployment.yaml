@@ -27,6 +27,8 @@ spec:
           image: ghcr.io/immich-app/immich-server:v2.4.1  # Check for latest version
           imagePullPolicy: IfNotPresent
           env:
+            - name: IMMICH_HOST
+              value: "0.0.0.0" 
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
