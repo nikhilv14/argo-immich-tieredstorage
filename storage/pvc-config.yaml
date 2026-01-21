@@ -33,11 +33,11 @@ metadata:
   namespace: immich
 spec:
   accessModes:
-    - ReadWriteMany
-  storageClassName: nas-rwx
+    - ReadWriteOnce
+  storageClassName: ssd-cache
   resources:
     requests:
-      storage: 500Gi
+      storage: 50Gi
 
 ---
 apiVersion: v1
