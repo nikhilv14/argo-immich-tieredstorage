@@ -167,14 +167,10 @@ spec:
           image: ghcr.io/immich-app/immich-server:v2.4.1  # Check for latest version
           imagePullPolicy: IfNotPresent
           env:
-            # FIX: Force Bind to All Interfaces to fix localhost/sidecar access
-            - name: IMMICH_HOST
-              value: "0.0.0.0"
-            - name: HOST
-              value: "0.0.0.0"
             # CONFIGURE INTEL DRIVER
             - name: LIBVA_DRIVER_NAME
               value: "iHD"  # Crucial for N97/Alder Lake
+            # REMOVED: IMMICH_HOST (Now provided via configMap as 0.0.0.0)
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
