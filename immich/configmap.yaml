@@ -23,4 +23,3 @@ data:
   IMMICH_MACHINE_LEARNING_URL: "http://immich-machine-learning:3003"
   
   TZ: "Europe/Dublin"
-  IMMICH_HOST: "0.0.0.0"
