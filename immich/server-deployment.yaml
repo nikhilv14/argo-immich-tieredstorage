@@ -33,133 +33,134 @@ spec:
             - -c
             - |
               set -e
-              echo "========== Starting tiered storage migration (subPath mode) =========="
               
-              # Verify source volume (immich-upload with all current data in subdirectories)
+              # Check if migration already completed (marker at upload root)
+              MIGRATION_MARKER="/upload-pvc-root/.migration-completed"
+              if [ -f "$MIGRATION_MARKER" ]; then
+                echo "✓ Migration already completed. Skipping data copy."
+                exit 0
+              fi
+              
+              echo "========== Starting tiered storage migration =========="
+              echo "Using subPath approach for upload PVC tier"
+              echo ""
+              
+              # Verify source volume exists
               if [ ! -d "/source-upload" ]; then
                 echo "ERROR: Source upload directory not found at /source-upload"
                 exit 1
               fi
-              echo "✓ Source volume mounted at /source-upload"
+              echo "✓ Source volume available"
               
-              # List what we're working with
-              echo "Current structure in /source-upload:"
-              ls -lah /source-upload/
-              
-              # Copy library to destination
+              # Step 1: Copy to upload subPath
               echo ""
-              echo "Step 1: Copying library/ to library subPath..."
-              if [ -d "/source-upload/library" ]; then
-                mkdir -p /dest-library
-                if [ "$(ls -A /source-upload/library 2>/dev/null)" ]; then
-                  cp -av /source-upload/library/* /dest-library/ 2>/dev/null || true
-                  echo "✓ Library copied ($(du -sh /dest-library | cut -f1))"
-                else
-                  echo "ℹ Library directory exists but is empty"
-                fi
-              else
-                echo "ℹ Library directory doesn't exist in source"
-              fi
-              
-              # Copy profile to destination
-              echo ""
-              echo "Step 2: Copying profile/ to profile subPath..."
-              if [ -d "/source-upload/profile" ]; then
-                mkdir -p /dest-profile
-                if [ "$(ls -A /source-upload/profile 2>/dev/null)" ]; then
-                  cp -av /source-upload/profile/* /dest-profile/ 2>/dev/null || true
-                  echo "✓ Profile copied ($(du -sh /dest-profile | cut -f1))"
-                else
-                  echo "ℹ Profile directory exists but is empty"
-                fi
-              else
-                echo "ℹ Profile directory doesn't exist in source"
-              fi
-              
-              # Copy thumbs to cache
-              echo ""
-              echo "Step 3: Copying thumbs/ to cache subPath..."
-              if [ -d "/source-upload/thumbs" ]; then
-                mkdir -p /dest-cache
-                if [ "$(ls -A /source-upload/thumbs 2>/dev/null)" ]; then
-                  cp -av /source-upload/thumbs/* /dest-cache/ 2>/dev/null || true
-                  echo "✓ Thumbs copied ($(du -sh /dest-cache | cut -f1))"
-                else
-                  echo "ℹ Thumbs directory exists but is empty"
-                fi
-              else
-                echo "ℹ Thumbs directory doesn't exist in source"
-              fi
-              
-              # Copy encoded-video to cache (optional, share tier)
-              echo ""
-              echo "Step 4: Copying encoded-video/ to cache/encoded-video..."
-              if [ -d "/source-upload/encoded-video" ]; then
-                mkdir -p /dest-cache/encoded-video
-                if [ "$(ls -A /source-upload/encoded-video 2>/dev/null)" ]; then
-                  cp -av /source-upload/encoded-video/* /dest-cache/encoded-video/ 2>/dev/null || true
-                  echo "✓ Encoded-video copied"
-                fi
-              fi
-              
-              # Ensure upload directory structure
-              echo ""
-              echo "Step 5: Ensuring upload staging structure..."
-              mkdir -p /dest-upload/upload
-              mkdir -p /dest-upload/backups
+              echo "Step 1: Copying to upload subPath..."
+              mkdir -p /upload-pvc-root/upload
               if [ -d "/source-upload/upload" ] && [ "$(ls -A /source-upload/upload 2>/dev/null)" ]; then
-                cp -av /source-upload/upload/* /dest-upload/upload/ 2>/dev/null || true
-                echo "✓ Upload staging copied"
+                cp -av /source-upload/upload/* /upload-pvc-root/upload/ 2>/dev/null || true
+                echo "✓ Upload copied ($(du -sh /upload-pvc-root/upload | cut -f1))"
               fi
               
-              # Create .immich marker files in ALL subdirectories
+              # Step 2: Copy to backups subPath
               echo ""
-              echo "Step 6: Creating .immich marker files..."
+              echo "Step 2: Copying to backups subPath..."
+              mkdir -p /upload-pvc-root/backups
+              if [ -d "/source-upload/backups" ] && [ "$(ls -A /source-upload/backups 2>/dev/null)" ]; then
+                cp -av /source-upload/backups/* /upload-pvc-root/backups/ 2>/dev/null || true
+                echo "✓ Backups copied"
+              fi
+              
+              # Step 3: Copy to encoded-video subPath
+              echo ""
+              echo "Step 3: Copying to encoded-video subPath..."
+              mkdir -p /upload-pvc-root/encoded-video
+              if [ -d "/source-upload/encoded-video" ] && [ "$(ls -A /source-upload/encoded-video 2>/dev/null)" ]; then
+                cp -av /source-upload/encoded-video/* /upload-pvc-root/encoded-video/ 2>/dev/null || true
+                echo "✓ Encoded-video copied"
+              fi
+              
+              # Step 4: Copy to library tier
+              echo ""
+              echo "Step 4: Copying to library tier..."
+              mkdir -p /library-pvc-root
+              if [ -d "/source-upload/library" ] && [ "$(ls -A /source-upload/library 2>/dev/null)" ]; then
+                cp -av /source-upload/library/* /library-pvc-root/ 2>/dev/null || true
+                echo "✓ Library copied ($(du -sh /library-pvc-root | cut -f1))"
+              fi
+              
+              # Step 5: Copy to profile tier
+              echo ""
+              echo "Step 5: Copying to profile tier..."
+              mkdir -p /profile-pvc-root
+              if [ -d "/source-upload/profile" ] && [ "$(ls -A /source-upload/profile 2>/dev/null)" ]; then
+                cp -av /source-upload/profile/* /profile-pvc-root/ 2>/dev/null || true
+                echo "✓ Profile copied ($(du -sh /profile-pvc-root | cut -f1))"
+              fi
+              
+              # Step 6: Copy to thumbs/cache tier
+              echo ""
+              echo "Step 6: Copying to cache tier..."
+              mkdir -p /cache-pvc-root
+              if [ -d "/source-upload/thumbs" ] && [ "$(ls -A /source-upload/thumbs 2>/dev/null)" ]; then
+                cp -av /source-upload/thumbs/* /cache-pvc-root/ 2>/dev/null || true
+                echo "✓ Cache/thumbs copied ($(du -sh /cache-pvc-root | cut -f1))"
+              fi
+              
+              # Step 7: Ensure sync-queue structure
+              echo ""
+              echo "Step 7: Ensuring sync-queue structure..."
+              mkdir -p /sync-queue-pvc-root
+              if [ -d "/source-upload/sync-queue" ] && [ "$(ls -A /source-upload/sync-queue 2>/dev/null)" ]; then
+                cp -av /source-upload/sync-queue/* /sync-queue-pvc-root/ 2>/dev/null || true
+              fi
+              
+              # Step 8: Create .immich marker files at all PVC ROOTS (critical for subPath)
+              echo ""
+              echo "Step 8: Creating .immich marker files at PVC roots..."
               MARKER_CONTENT='{"version":1,"timestamp":"'$(date -u +%s)'"}'
               
-              for dir in /dest-upload/upload /dest-library /dest-cache /dest-profile; do
-                mkdir -p "$dir"
-                echo "$MARKER_CONTENT" > "$dir/.immich"
-                chmod 644 "$dir/.immich"
-                echo "✓ Created $dir/.immich"
+              for pvc_root in /upload-pvc-root /library-pvc-root /profile-pvc-root /cache-pvc-root /sync-queue-pvc-root; do
+                mkdir -p "$pvc_root"
+                echo "$MARKER_CONTENT" > "$pvc_root/.immich"
+                chmod 644 "$pvc_root/.immich"
+                echo "✓ Created $pvc_root/.immich"
               done
               
-              # Also create in sync-queue if it exists
-              if [ -d "/dest-sync-queue" ]; then
-                mkdir -p /dest-sync-queue
-                echo "$MARKER_CONTENT" > /dest-sync-queue/.immich
-                echo "✓ Created /dest-sync-queue/.immich"
-              fi
+              # Step 9: Create migration lock
+              echo ""
+              echo "Step 9: Creating migration lock..."
+              echo "Migration completed at $(date -u)" > "$MIGRATION_MARKER"
+              echo "✓ Lock file created"
               
               echo ""
               echo "========== Migration completed successfully =========="
               echo ""
               echo "Final state:"
-              echo "  /dest-upload: $(du -sh /dest-upload 2>/dev/null | cut -f1)"
-              echo "  /dest-library: $(du -sh /dest-library 2>/dev/null | cut -f1)"
-              echo "  /dest-cache: $(du -sh /dest-cache 2>/dev/null | cut -f1)"
-              echo "  /dest-profile: $(du -sh /dest-profile 2>/dev/null | cut -f1)"
+              du -sh /upload-pvc-root/* 2>/dev/null | sort || echo "  (upload PVC)"
+              echo "  library-pvc-root: $(du -sh /library-pvc-root 2>/dev/null | cut -f1)"
+              echo "  profile-pvc-root: $(du -sh /profile-pvc-root 2>/dev/null | cut -f1)"
+              echo "  cache-pvc-root: $(du -sh /cache-pvc-root 2>/dev/null | cut -f1)"
               echo ""
-              echo "Marker files verification:"
-              find /dest-* -name ".immich" -type f 2>/dev/null | head -10
-    
+              echo "Marker files verification (PVC roots only):"
+              find /upload-pvc-root /library-pvc-root /profile-pvc-root /cache-pvc-root /sync-queue-pvc-root -maxdepth 1 -name ".immich" -type f 2>/dev/null | sort
+          
           volumeMounts:
-            # Source: existing immich-upload (contains all current data)
+            # Source: existing immich-upload (all current data)
             - name: immich-upload
               mountPath: /source-upload
             
-            # Destinations: new PVCs
+            # Destinations: PVC roots (for marker file creation)
             - name: immich-upload
-              mountPath: /dest-upload
-              subPath: ""  # Root of the PVC for /upload and /backups
+              mountPath: /upload-pvc-root
             - name: immich-library
-              mountPath: /dest-library
+              mountPath: /library-pvc-root
             - name: immich-cache
-              mountPath: /dest-cache
+              mountPath: /cache-pvc-root
             - name: immich-profile
-              mountPath: /dest-profile
+              mountPath: /profile-pvc-root
             - name: immich-sync-queue
-              mountPath: /dest-sync-queue
+              mountPath: /sync-queue-pvc-root
+
 
       containers:
         - name: immich-server
