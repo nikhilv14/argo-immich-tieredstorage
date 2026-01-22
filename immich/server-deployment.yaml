@@ -33,7 +33,13 @@ spec:
             - -c
             - |
               set -e
-              
+
+              for pvc_root in /cache-pvc-root; do
+                mkdir -p "$pvc_root"
+                echo "$MARKER_CONTENT" > "$pvc_root/.immich"
+                chmod 644 "$pvc_root/.immich"
+                echo "✓ Created $pvc_root/.immich"
+              done
               # Check if migration already completed (marker at upload root)
               MIGRATION_MARKER="/upload-pvc-root/.migration-completed"
               if [ -f "$MIGRATION_MARKER" ]; then
