@@ -9,7 +9,7 @@ spec:
   storageClassName: nas-rwx
   resources:
     requests:
-      storage: 500Gi
+      storage: 2Ti
 
 ---
 apiVersion: v1
@@ -37,7 +37,7 @@ spec:
   storageClassName: ssd-cache
   resources:
     requests:
-      storage: 150Gi
+      storage: 100Gi
 
 ---
 apiVersion: v1

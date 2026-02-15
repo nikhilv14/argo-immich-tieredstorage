@@ -33,7 +33,7 @@ spec:
             - -c
             - |
               set -e
-              
+
               # Check if migration already completed (marker at upload root)
               MIGRATION_MARKER="/upload-pvc-root/.migration-completed"
               if [ -f "$MIGRATION_MARKER" ]; then
@@ -170,10 +170,7 @@ spec:
             # CONFIGURE INTEL DRIVER
             - name: LIBVA_DRIVER_NAME
               value: "iHD"  # Crucial for N97/Alder Lake
-            - name: IMMICH_HOST
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
+            # REMOVED: IMMICH_HOST (Now provided via configMap as 0.0.0.0)
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
