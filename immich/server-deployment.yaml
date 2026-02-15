@@ -37,7 +37,7 @@ spec:
               # Check if migration already completed (marker at upload root)
               MIGRATION_MARKER="/upload-pvc-root/.migration-completed"
               if [ -f "$MIGRATION_MARKER" ]; then
-                echo "✓ Migration already completed. Skipping data copy."
+                echo "Migration already completed. Skipping data copy."
                 exit 0
               fi
               
@@ -50,7 +50,7 @@ spec:
                 echo "ERROR: Source upload directory not found at /source-upload"
                 exit 1
               fi
-              echo "✓ Source volume available"
+              echo "Source volume available"
               
               # Step 1: Copy to upload subPath
               echo ""
@@ -58,7 +58,7 @@ spec:
               mkdir -p /upload-pvc-root/upload
               if [ -d "/source-upload/upload" ] && [ "$(ls -A /source-upload/upload 2>/dev/null)" ]; then
                 cp -av /source-upload/upload/* /upload-pvc-root/upload/ 2>/dev/null || true
-                echo "✓ Upload copied ($(du -sh /upload-pvc-root/upload | cut -f1))"
+                echo "Upload copied ($(du -sh /upload-pvc-root/upload | cut -f1))"
               fi
               
               # Step 2: Copy to backups subPath
@@ -67,7 +67,7 @@ spec:
               mkdir -p /upload-pvc-root/backups
               if [ -d "/source-upload/backups" ] && [ "$(ls -A /source-upload/backups 2>/dev/null)" ]; then
                 cp -av /source-upload/backups/* /upload-pvc-root/backups/ 2>/dev/null || true
-                echo "✓ Backups copied"
+                echo "Backups copied"
               fi
               
               # Step 3: Copy to encoded-video subPath
@@ -76,7 +76,7 @@ spec:
               mkdir -p /upload-pvc-root/encoded-video
               if [ -d "/source-upload/encoded-video" ] && [ "$(ls -A /source-upload/encoded-video 2>/dev/null)" ]; then
                 cp -av /source-upload/encoded-video/* /upload-pvc-root/encoded-video/ 2>/dev/null || true
-                echo "✓ Encoded-video copied"
+                echo "Encoded-video copied"
               fi
               
               # Step 4: Copy to library tier
@@ -85,7 +85,7 @@ spec:
               mkdir -p /library-pvc-root
               if [ -d "/source-upload/library" ] && [ "$(ls -A /source-upload/library 2>/dev/null)" ]; then
                 cp -av /source-upload/library/* /library-pvc-root/ 2>/dev/null || true
-                echo "✓ Library copied ($(du -sh /library-pvc-root | cut -f1))"
+                echo "Library copied ($(du -sh /library-pvc-root | cut -f1))"
               fi
               
               # Step 5: Copy to profile tier
@@ -94,7 +94,7 @@ spec:
               mkdir -p /profile-pvc-root
               if [ -d "/source-upload/profile" ] && [ "$(ls -A /source-upload/profile 2>/dev/null)" ]; then
                 cp -av /source-upload/profile/* /profile-pvc-root/ 2>/dev/null || true
-                echo "✓ Profile copied ($(du -sh /profile-pvc-root | cut -f1))"
+                echo "Profile copied ($(du -sh /profile-pvc-root | cut -f1))"
               fi
               
               # Step 6: Copy to thumbs/cache tier
@@ -103,7 +103,7 @@ spec:
               mkdir -p /cache-pvc-root
               if [ -d "/source-upload/thumbs" ] && [ "$(ls -A /source-upload/thumbs 2>/dev/null)" ]; then
                 cp -av /source-upload/thumbs/* /cache-pvc-root/ 2>/dev/null || true
-                echo "✓ Cache/thumbs copied ($(du -sh /cache-pvc-root | cut -f1))"
+                echo "Cache/thumbs copied ($(du -sh /cache-pvc-root | cut -f1))"
               fi
               
               # Step 7: Ensure sync-queue structure
@@ -123,14 +123,14 @@ spec:
                 mkdir -p "$pvc_root"
                 echo "$MARKER_CONTENT" > "$pvc_root/.immich"
                 chmod 644 "$pvc_root/.immich"
-                echo "✓ Created $pvc_root/.immich"
+                echo "Created $pvc_root/.immich"
               done
               
               # Step 9: Create migration lock
               echo ""
               echo "Step 9: Creating migration lock..."
               echo "Migration completed at $(date -u)" > "$MIGRATION_MARKER"
-              echo "✓ Lock file created"
+              echo "Lock file created"
               
               echo ""
               echo "========== Migration completed successfully =========="
