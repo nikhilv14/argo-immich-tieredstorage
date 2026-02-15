@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-server-test
+  namespace: immich
+  labels:
+    app.kubernetes.io/name: immich-server-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: immich-server-test
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: immich-server-test
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k3s-node1
+      containers:
+        - name: test-container
+          image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          env:
+            - name: TEST_MESSAGE
+              value: "plain-ascii-test"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 20
+
