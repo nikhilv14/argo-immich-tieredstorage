@@ -40,7 +40,7 @@ spec:
             - secretRef:
                 name: immich-secret
           ports:
-            - containerPort: 3003
+            - containerPort: 2283
               name: http
           volumeMounts:
             - name: model-cache
@@ -65,5 +65,5 @@ spec:
     app.kubernetes.io/name: immich-machine-learning
   ports:
     - protocol: TCP
-      port: 3003
-      targetPort: 3003
+      port: 2283
+      targetPort: 2283
