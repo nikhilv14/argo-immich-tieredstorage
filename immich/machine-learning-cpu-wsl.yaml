@@ -63,8 +63,9 @@ spec:
               cpu: 500m
               memory: 512Mi
             limits:
-              cpu: "4"
-              memory: 4Gi
+              # 12600 has 10c/16t; leave headroom for Windows + this agent
+              cpu: "8"
+              memory: 6Gi
           volumeMounts:
             - name: model-cache
               mountPath: /cache
