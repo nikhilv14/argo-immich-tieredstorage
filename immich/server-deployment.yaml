@@ -166,6 +166,10 @@ spec:
         - name: immich-server
           image: ghcr.io/immich-app/immich-server:v3.2.2
           imagePullPolicy: IfNotPresent
+          # privileged: containerd device cgroup blocks /dev/dri char devices
+          # even with matching supplementalGroups (44/109); QSV/VAAPI need it
+          securityContext:
+            privileged: true
           env:
             # CONFIGURE INTEL DRIVER
             - name: LIBVA_DRIVER_NAME

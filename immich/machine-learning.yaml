@@ -28,6 +28,9 @@ spec:
         - name: immich-machine-learning
           image: ghcr.io/immich-app/immich-machine-learning:v3.2.2
           imagePullPolicy: IfNotPresent
+          # privileged: same device-cgroup reason as immich-server (/dev/dri for OpenVINO GPU)
+          securityContext:
+            privileged: true
           env:
             # ENABLE OPENVINO
             - name: ACCELERATORS
