@@ -26,7 +26,8 @@ spec:
 
       containers:
         - name: immich-machine-learning
-          image: ghcr.io/immich-app/immich-machine-learning:v3.2.2
+          # -openvino variant: ships onnxruntime OpenVINO EP for iGPU inference
+          image: ghcr.io/immich-app/immich-machine-learning:v3.2.2-openvino
           imagePullPolicy: IfNotPresent
           # privileged: same device-cgroup reason as immich-server (/dev/dri for OpenVINO GPU)
           securityContext:
