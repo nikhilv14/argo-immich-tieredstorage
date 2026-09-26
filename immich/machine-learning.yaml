@@ -26,7 +26,7 @@ spec:
 
       containers:
         - name: immich-machine-learning
-          image: ghcr.io/immich-app/immich-machine-learning:v2.4.1
+          image: ghcr.io/immich-app/immich-machine-learning:v3.2.2
           imagePullPolicy: IfNotPresent
           env:
             # ENABLE OPENVINO

@@ -164,7 +164,7 @@ spec:
 
       containers:
         - name: immich-server
-          image: ghcr.io/immich-app/immich-server:v2.4.1  # Check for latest version
+          image: ghcr.io/immich-app/immich-server:v3.2.2
           imagePullPolicy: IfNotPresent
           env:
             # CONFIGURE INTEL DRIVER
