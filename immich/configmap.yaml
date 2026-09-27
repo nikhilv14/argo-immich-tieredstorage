@@ -21,6 +21,9 @@ data:
   # Configure Immich to listen on all interfaces
   IMMICH_HOST: "0.0.0.0"
   IMMICH_PORT: "2283"
+
+  # Public URL via Cloudflare Tunnel
+  IMMICH_SERVER_URL: "https://photos.daemonagent.net"
   
   # Folder paths (internal container paths)
   UPLOAD_LOCATION: "/usr/src/app/upload"
