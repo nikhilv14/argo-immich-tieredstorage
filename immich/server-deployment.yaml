@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: immich-server
 spec:
-  replicas: 0  # TEMP: volume dataLocality migration
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: immich-server

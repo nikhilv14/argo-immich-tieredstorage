@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/name: immich-redis
     app.kubernetes.io/part-of: immich
 spec:
-  replicas: 0  # TEMP: volume dataLocality migration
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: immich-redis
