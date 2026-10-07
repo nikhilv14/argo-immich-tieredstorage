@@ -12,8 +12,11 @@ spec:
     
     # CRITICAL: NAS Storage Unavailable
     - alert: ImmichNASUnavailable
+      # kube_persistentvolumeclaim_status_phase carries the claim name in the
+      # `persistentvolumeclaim` label (not `claim`); the previous expression
+      # never matched anything and absent() made this alert fire permanently.
       expr: |
-        absent(kube_persistentvolumeclaim_status_phase{claim="immich-library", phase="Bound"})
+        absent(kube_persistentvolumeclaim_status_phase{persistentvolumeclaim="immich-library", namespace="immich", phase="Bound"})
       for: 5m
       labels:
         severity: critical
