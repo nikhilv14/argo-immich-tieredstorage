@@ -10,7 +10,8 @@ spec:
   selector:
     app.kubernetes.io/name: immich-server
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 2283
       targetPort: 2283
     # Prometheus telemetry: enabled via IMMICH_TELEMETRY_INCLUDE in server-deployment.yaml
