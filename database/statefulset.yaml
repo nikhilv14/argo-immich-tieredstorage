@@ -11,6 +11,10 @@ spec:
     - name: postgres
       port: 5432
       targetPort: 5432
+    # postgres-exporter sidecar
+    - name: metrics
+      port: 9187
+      targetPort: 9187
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -173,6 +177,33 @@ spec:
             requests:
               cpu: 10m
               memory: 16Mi
+
+        # Sidecar: Prometheus postgres_exporter for DB metrics.
+        - name: postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: immich-db-secret
+                  key: password
+            # K8s $(VAR) interpolation requires DB_PASSWORD to be declared first
+            - name: DATA_SOURCE_NAME
+              value: postgresql://immich:$(DB_PASSWORD)@localhost:5432/immich?sslmode=disable
+          ports:
+            - name: metrics
+              containerPort: 9187
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 15
+            periodSeconds: 30
 
       volumes:
         - name: data

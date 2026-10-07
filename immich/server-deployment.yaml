@@ -174,6 +174,9 @@ spec:
             # CONFIGURE INTEL DRIVER
             - name: LIBVA_DRIVER_NAME
               value: "iHD"  # Crucial for N97/Alder Lake
+            # Prometheus telemetry on :8081/metrics (IMMICH_API_METRICS_PORT default)
+            - name: IMMICH_TELEMETRY_INCLUDE
+              value: "all"
             # REMOVED: IMMICH_HOST (Now provided via configMap as 0.0.0.0)
             - name: DB_PASSWORD
               valueFrom:
@@ -195,6 +198,8 @@ spec:
           ports:
             - containerPort: 2283
               name: http
+            - containerPort: 8081
+              name: metrics
           livenessProbe:
             httpGet:
               path: /api/server/ping
