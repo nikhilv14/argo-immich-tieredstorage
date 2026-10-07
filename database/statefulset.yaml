@@ -3,6 +3,9 @@ kind: Service
 metadata:
   name: immich-db
   namespace: immich
+  # app label is the selector the ServiceMonitor (monitoring/servicemonitor.yaml) matches on
+  labels:
+    app: immich-db
 spec:
   clusterIP: None
   selector:
