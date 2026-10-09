@@ -15,8 +15,8 @@ spec:
       labels:
         app.kubernetes.io/name: immich-machine-learning
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: k3s-node1
+      # No nodeSelector: ML pods may run on any node with the GPU feature label
+      # (required via nodeAffinity below); all nodes are labeled gpu=true.
 
       topologySpreadConstraints:
         - maxSkew: 1
