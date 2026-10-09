@@ -20,6 +20,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
+  volumeName: pvc-4502ea0f-80d3-488f-a827-b2bc6ff742f3
   storageClassName: ssd-cache
   resources:
     requests:
@@ -34,6 +35,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
+  volumeName: pvc-aa53b0c2-039f-4d27-91fc-8d5c40802262
   storageClassName: ssd-cache
   resources:
     requests:
@@ -48,6 +50,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
+  volumeName: pvc-61161c6a-f054-428d-9700-ff4e64a3bd73
   storageClassName: ssd-cache
   resources:
     requests:
@@ -90,6 +93,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
+  volumeName: pvc-27f9e2c7-f32a-4911-a62a-f7221b728ffe
   storageClassName: ssd-cache
   resources:
     requests:
