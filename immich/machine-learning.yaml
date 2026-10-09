@@ -67,6 +67,10 @@ spec:
               value: "/cache"
             - name: TRANSFORMERS_CACHE
               value: "/cache"
+            # Override immich-config's IMMICH_PORT=2283 (shared by server+ML via envFrom):
+            # ML must bind 3003 to match the Service, without touching the server's port.
+            - name: IMMICH_PORT
+              value: "3003"
             - name: MPLCONFIGDIR
               value: "/cache/matplotlib"
           envFrom:
