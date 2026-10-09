@@ -18,6 +18,24 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: k3s-node1
 
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: immich-machine-learning
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: intel.feature.node.kubernetes.io/gpu
+                    operator: In
+                    values:
+                      - "true"
+
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
@@ -27,8 +45,13 @@ spec:
       containers:
         - name: immich-machine-learning
           # -openvino variant: ships onnxruntime OpenVINO EP for iGPU inference
-          image: ghcr.io/immich-app/immich-machine-learning:v3.2.2-openvino
+          image: ghcr.io/immich-app/immich-machine-learning:release-openvino
           imagePullPolicy: IfNotPresent
+          # requests required: HPA averageUtilization cannot compute without them
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
           # privileged: same device-cgroup reason as immich-server (/dev/dri for OpenVINO GPU)
           securityContext:
             privileged: true
@@ -36,6 +59,18 @@ spec:
             # ENABLE OPENVINO
             - name: ACCELERATORS
               value: "openvino"
+            - name: NODE_ENV
+              value: "production"
+            - name: MACHINE_LEARNING_DEVICE
+              value: "GPU"
+            - name: MACHINE_LEARNING_CACHE_FOLDER
+              value: "/cache"
+            - name: TRANSFORMERS_CACHE
+              value: "/cache"
+            # Override immich-config's IMMICH_PORT=2283 (shared by server+ML via envFrom):
+            # ML must bind 3003 to match the Service, without touching the server's port.
+            - name: IMMICH_PORT
+              value: "3003"
             - name: MPLCONFIGDIR
               value: "/cache/matplotlib"
           envFrom:
@@ -44,7 +79,7 @@ spec:
             - secretRef:
                 name: immich-secret
           ports:
-            - containerPort: 2283
+            - containerPort: 3003
               name: http
           volumeMounts:
             - name: model-cache
@@ -69,5 +104,5 @@ spec:
     app.kubernetes.io/name: immich-machine-learning
   ports:
     - protocol: TCP
-      port: 2283
-      targetPort: 2283
+      port: 3003
+      targetPort: 3003
