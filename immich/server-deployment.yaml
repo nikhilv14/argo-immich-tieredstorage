@@ -6,7 +6,12 @@ metadata:
   labels:
     app.kubernetes.io/name: immich-server
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: immich-server
@@ -15,9 +20,18 @@ spec:
       labels:
         app.kubernetes.io/name: immich-server
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: k3s-node1
+      # No nodeSelector: server pods may run on any node (all shared PVCs are RWX)
       # 2. GRANT GPU PERMISSIONS
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: immich-server
+
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
