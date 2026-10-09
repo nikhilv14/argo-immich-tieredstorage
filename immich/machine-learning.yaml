@@ -45,7 +45,8 @@ spec:
       containers:
         - name: immich-machine-learning
           # -openvino variant: ships onnxruntime OpenVINO EP for iGPU inference
-          image: ghcr.io/immich-app/immich-machine-learning:release-openvino
+          # pinned to v3.3.1 to match immich-server v3.3.1
+          image: ghcr.io/immich-app/immich-machine-learning:v3.3.1-openvino
           imagePullPolicy: IfNotPresent
           # requests required: HPA averageUtilization cannot compute without them
           resources:
