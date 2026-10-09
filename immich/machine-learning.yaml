@@ -48,14 +48,15 @@ spec:
           # pinned to v3.3.1 to match immich-server v3.3.1
           image: ghcr.io/immich-app/immich-machine-learning:v3.3.1-openvino
           imagePullPolicy: IfNotPresent
-          # requests required: HPA averageUtilization cannot compute without them
+          # GPU via Intel device plugin: advertises gpu.intel.com/i915, mounts
+          # /dev/dri and fixes the cgroup-v2 device filter (privileged cannot)
           resources:
             requests:
               cpu: 250m
               memory: 512Mi
-          # privileged: same device-cgroup reason as immich-server (/dev/dri for OpenVINO GPU)
-          securityContext:
-            privileged: true
+            limits:
+              gpu.intel.com/i915: "1"
+          # Level Zero loader + GPU driver live on the host, not in the image
           env:
             # ENABLE OPENVINO
             - name: ACCELERATORS
@@ -87,12 +88,24 @@ spec:
               mountPath: /cache
             - name: dev-dri
               mountPath: /dev/dri
+            - name: ze-loader
+              mountPath: /usr/lib/x86_64-linux-gnu/libze_loader.so.1
+            - name: ze-gpu-driver
+              mountPath: /usr/lib/x86_64-linux-gnu/libze_intel_gpu.so.1
       volumes:
         - name: model-cache
           emptyDir: {}  # or use a PVC if you want to persist downloaded models
         - name: dev-dri
           hostPath:
             path: /dev/dri
+        - name: ze-loader
+          hostPath:
+            path: /usr/lib/x86_64-linux-gnu/libze_loader.so.1
+            type: File
+        - name: ze-gpu-driver
+          hostPath:
+            path: /usr/lib/x86_64-linux-gnu/libze_intel_gpu.so.1
+            type: File
 
 ---
 apiVersion: v1
