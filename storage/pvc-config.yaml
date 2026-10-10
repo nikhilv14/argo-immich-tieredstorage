@@ -66,6 +66,10 @@ spec:
   accessModes:
     - ReadWriteOnce
   storageClassName: ssd-cache
+  # Pinned to the retained Longhorn PV (PV nodeAffinity was removed to allow
+  # node failover; see database/README-db-affinity.md). VolumeName is set
+  # because the claim pre-binds to that specific retained PV.
+  volumeName: pvc-9439e16c-af1f-4322-99ff-57064989aae0
   resources:
     requests:
       storage: 20Gi
