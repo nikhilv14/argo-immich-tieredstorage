@@ -12,7 +12,7 @@ spec:
   # UHD660, UHD770). Every replica claims gpu.intel.com/i915: 1, so scaling
   # past 3 would only ever produce Pending pods (hp-g9 is CPU-only and is the
   # last-priority fallback, not an autoscaling target).
-  minReplicas: 1
+  minReplicas: 3
   maxReplicas: 3
   metrics:
     - type: Resource
