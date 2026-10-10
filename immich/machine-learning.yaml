@@ -83,6 +83,12 @@ spec:
         fsGroup: 1000
         supplementalGroups: [109, 44] # 109 is 'render'and 44 is group ID
 
+      # ML never calls the Kubernetes API. Skipping the projected service-account
+      # token avoids a tmpfs mount that unprivileged LXC nodes (k3s-worker-z690)
+      # cannot perform: root there lacks CAP_SYS_ADMIN over the host mount ns,
+      # so kubelet volume mounts fail with "must be superuser".
+      automountServiceAccountToken: false
+
       containers:
         - name: immich-machine-learning
           # -openvino variant: ships onnxruntime OpenVINO EP for iGPU inference
