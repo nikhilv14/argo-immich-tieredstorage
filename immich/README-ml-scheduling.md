@@ -127,7 +127,8 @@ predictions:
 | k3s-server-nuc    | (a) missing DMC firmware; (b) **Virtio GPU KMS deadlock**: virtio-gpu fbdev worker spins forever in                 | (a) `firmware-misc-nonfree` (was pending reboot); (b) blacklist `virtio_gpu`            | RCS 88-90% busy, ~1.1 GHz          |
 |                   | `virtio_gpu_queue_fenced_ctrl_buffer` (fence never completes — hypervisor), holding the DRM modeset                 | (`/etc/modprobe.d/blacklist-virtio-gpu.conf`: `blacklist` + `install ... /bin/false`),  |                                    |
 |                   | lock; every DRM open (incl. Level Zero loader enumerating card0) blocks -> host zeInit HUNG and the                 | then reboot. Intel iGPU is now the only DRM device (card0/renderD128).                  |                                    |
-|                   | console froze mid-boot ("snd_hda_intel ... no codec found!" is the last visible line — cosmetic).                   | NOTE: Proxmox console shows a frozen last frame after SeaBIOS/GRUB — expected.         |                                    |
+|                   | console froze mid-boot ("snd_hda_intel ... no codec found!" is the last visible line — cosmetic).                   | NOTE: the Virtio display device was later REMOVED in Proxmox (Display:none) and a      |                                    |
+|                   |                                                                                                                    | serial0 port added; the `virtio_gpu` blacklist is now inert but kept as a guard.       |                                    |
 | k3s-node1         | Rogue hand-installed binaries layered on the jammy-repo stack: `libze_loader.so.1.20.6` (needs GLIBCXX_3.4.32,      | Deleted rogue loader, restored package symlink -> `1.11.0`; moved rogue driver         | RCS 66-86% busy, ~1.2 GHz          |
 |                   | absent on jammy) retargeted onto `libze_loader.so.1`, plus noble-era driver `libze_intel_gpu.so.1.17.39758`         | to `/root/rogue-libze_intel_gpu.so.1.17.39758.bak`. `ldconfig` kept re-flipping the     |                                    |
 |                   | symlinked as the driver (needs igc/gmmlib versions jammy does not have). ldconfig prefers the highest               | driver symlink, so the rogue .so had to leave the library path entirely. Jammy set:     |                                    |
@@ -155,6 +156,23 @@ facial detection/recognition) across the 3 replicas; per-node
 `intel_gpu_top`: z690 RCS 56.12%, nuc RCS 89.9%, node1 RCS 86.2% busy.
 HPA held 3/3 during load (memory 104%/80%), matching documented scale
 behavior.
+
+## k3s-server-nuc console (2026-10-11): serial only
+
+The Virtio display device was removed from the VM in Proxmox (Display:none;
+required a full stop/start from the Proxmox side — guest-initiated reboots do
+NOT apply hardware changes). With no display device, noVNC shows a black
+screen; the console is served over serial:
+
+- Proxmox Hardware: `serial0` added (guest sees `PNP0501`).
+- Guest: `serial-getty@ttyS0.service` enabled, GRUB `GRUB_TERMINAL=serial` +
+  `GRUB_SERIAL_COMMAND="serial --unit=0 --speed=115200"`, kernel cmdline
+  `console=ttyS0,115200n8` in `GRUB_CMDLINE_LINUX_DEFAULT`. Kernel + GRUB +
+  login prompt all appear on the serial console.
+- Use: Proxmox UI -> VM -> console selector (top-right) -> `ttyS0`
+  (Serial console / xterm.js).
+- Re-validated after the hardware change: host zeInit `0x0`, in-pod zeInit
+  `0x0`, RCS 90.2% busy @ ~1.14 GHz during predictions.
 
 ML API note (v3.3.1): `/predict` takes multipart `image` file +
 `entries` form field = JSON of PipelineRequest: e.g.
