@@ -81,7 +81,13 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
-        supplementalGroups: [109, 44] # 109 is 'render'and 44 is group ID
+        # 44  = video GID (Ubuntu 44 / Debian 44)
+        # 109 = render GID on Ubuntu (node1)
+        # 992 = render GID on Debian (nuc, z690): the device plugin injects
+        #       /dev/dri/by-path/* device nodes with the host's render GID, and
+        #       compute-runtime (NEO) enumerates via by-path — without this GID
+        #       the by-path render node open fails EACCES -> zeInit DEVICE_LOST
+        supplementalGroups: [109, 44, 992]
 
       # ML never calls the Kubernetes API. Skipping the projected service-account
       # token avoids a tmpfs mount that unprivileged LXC nodes (k3s-worker-z690)
