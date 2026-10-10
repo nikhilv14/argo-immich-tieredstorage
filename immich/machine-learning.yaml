@@ -136,14 +136,6 @@ spec:
           volumeMounts:
             - name: model-cache
               mountPath: /cache
-            - name: dev-dri
-              mountPath: /dev/dri
-              # Read-only: opening the DRM render device does not require a
-              # writable mount. This also avoids a containerd failure on LXC
-              # nodes (z690) where creating the by-path symlink target inside
-              # a rw mount fails with "file exists". The Intel GPU plugin pod
-              # uses the same read-only pattern successfully.
-              readOnly: true
             - name: ze-loader
               mountPath: /usr/lib/x86_64-linux-gnu/libze_loader.so.1
             - name: ze-gpu-driver
@@ -151,9 +143,11 @@ spec:
       volumes:
         - name: model-cache
           emptyDir: {}  # or use a PVC if you want to persist downloaded models
-        - name: dev-dri
-          hostPath:
-            path: /dev/dri
+        # NOTE: no /dev/dri hostPath. The Intel GPU device plugin injects the
+        # render node(s) into containers that request gpu.intel.com/i915, and
+        # a whole-dir bind mount of /dev/dri breaks container spec generation
+        # on k3s-worker-z690 (unprivileged LXC): mkdir of the dangling
+        # /dev/dri/by-path card symlink inside the mounted dir returns EEXIST.
         - name: ze-loader
           hostPath:
             path: /usr/lib/x86_64-linux-gnu/libze_loader.so.1
