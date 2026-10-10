@@ -197,13 +197,6 @@ spec:
                 secretKeyRef:
                   name: immich-db-secret  # The secret name you confirmed
                   key: password
-            # API Key for Job Scheduler - To be populated by user via Secret
-            - name: IMMICH_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: immich-secret
-                  key: api_key
-                  optional: true
           envFrom:
             - configMapRef:
                 name: immich-config
