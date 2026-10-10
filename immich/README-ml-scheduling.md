@@ -1,6 +1,26 @@
 # Immich ML: tiered GPU scheduling
 
-## Node tags (apply with `label-ml-nodes.sh`)
+> **Cluster reality (validated 2026-10-10 against the live cluster)**
+>
+> - `k3s-node1` (Intel 46d1, Alder Lake-S UHD770): `gpu.intel.com/i915=1` OK.
+> - `k3s-worker-z690` (i915 render node present): was not advertising i915
+>   because `/var/lib/kubelet/device-plugins` was owned by uid 100000, so the
+>   unprivileged plugin pod crashed on socket bind (`permission denied`).
+>   Fixed with `sudo chown root:root /var/lib/kubelet/device-plugins` on the
+>   node + pod restart. The node was also cordoned; it has been uncordoned.
+> - `k3s-server-nuc`: it is a VM exposing only a Red Hat Virtio GPU to the
+>   guest (DRIVER=virtio-pci). The UHD660 lives on the VM host and is NOT
+>   visible to k3s, so this node cannot host a GPU ML pod today. Until iGPU
+>   passthrough/SR-IOV or a host-level k3s move is done, only 2 GPU slots
+>   exist and a 3rd ML replica will stay Pending.
+> - `k3s-server-hp-g9`: also a virtio VM; carries the stale
+>   `intel.feature.node.kubernetes.io/gpu=true` label despite having no usable
+>   GPU. Harmless (no i915 capacity), but the label is misleading.
+>
+> HPA maxReplicas stays at 3 so the fleet self-heals to 3 replicas as soon as
+> the third GPU slot appears.
+
+## Node tags (applied live on 2026-10-10; script kept for re-apply)
 
 | Node                | `immich.ml/tier` | `immich.ml/gpu-model` | Notes                          |
 |---------------------|------------------|-----------------------|--------------------------------|
