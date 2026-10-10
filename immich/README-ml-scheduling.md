@@ -3,26 +3,29 @@
 > **Cluster reality (validated 2026-10-10 against the live cluster)**
 >
 > - `k3s-node1` (Intel 46d1, Alder Lake-S UHD770): `gpu.intel.com/i915=1` OK.
-> - `k3s-worker-z690` (i915 render node present, **unprivileged LXC**):
->   initially not advertising i915 because `/var/lib/kubelet/device-plugins`
->   was owned by uid 100000, so the unprivileged plugin pod crashed on socket
->   bind (`permission denied`). Fixed with
->   `sudo chown root:root /var/lib/kubelet/device-plugins` on the node + pod
->   restart. The node was also cordoned; it has been uncordoned.
->   Additional LXC-specific fixes (2026-10-10):
+> - `k3s-worker-z690` (i915, **privileged LXC**, previously unprivileged):
+>   - Device plugin socket dir was owned by uid 100000 → chowned to root.
+>   - The privileged conversion left ~22k rootfs files owned by the old
+>     mapped uid 100000 (including setuid `/bin/mount`), which made every
+>     kubelet mount fail with "must be superuser"; fixed with a
+>     `find / -xdev -uid 100000 -exec chown root:root {} +` pass.
 >   - Level Zero libs were missing (Debian repos don't ship them): installed
 >     `intel-level-zero-gpu` + `libze1` from Intel's apt repo
->     (`repositories.intel.com/gpu/ubuntu noble`) on z690 and nuc so the
->     hostPath mounts for `libze_loader.so.1` / `libze_intel_gpu.so.1` pass.
->   - The ML pod skips the projected service-account token: kubelet tmpfs
->     mounts are impossible in an unprivileged LXC ("must be superuser").
+>     (`repositories.intel.com/gpu/ubuntu noble`) on z690 and nuc.
+>   - Longhorn prerequisites: installed `open-iscsi` and labeled the node
+>     `longhorn-system=true` (the manager DaemonSet only runs on labeled
+>     nodes; z690 joined 29h after the label was set on the others).
+>   - The LXC only bind-mounts the host render node as renderD128, so card0
+>     was missing while present in sysfs; created the device node
+>     (`mknod /dev/dri/card0 c 226 0`) and purged the stale udev entry
+>     (`/run/udev/data/c226:0`) that kept re-creating a dangling
+>     `/dev/dri/by-path/pci-0000:00:02.0-card` symlink, which broke
+>     container spec generation.
+>   - The ML pod skips the projected service-account token (a projected
+>     tmpfs mount failed while the chown pass was still missing).
 >   - The `/dev/dri` hostPath was dropped in favor of device-plugin node
->     injection: a whole-dir bind mount broke container spec generation on
->     the dangling `/dev/dri/by-path/pci-0000:00:02.0-card` symlink (only
->     the render node is exposed into the LXC). The dangling symlink was
->     removed on the node and the plugin pod restarted.
->   - Longhorn / CSI-NFS / metallb-speaker remain stuck on z690 for the same
->     mount reason; they need a privileged LXC or a full VM.
+>     injection (a whole-dir bind mount collided with the injected
+>     by-path device).
 > - `k3s-server-nuc`: initially exposed only a Red Hat Virtio GPU (DRIVER=virtio-pci)
 >   and advertised no i915. After a VM reboot on 2026-10-10 the Intel iGPU
 >   (UHD660) became visible and the node now advertises
