@@ -91,11 +91,39 @@ and future model-aware scheduling.
   after active use. Immich ML unloads models after an idle timeout, memory
   drops back below target, and the fleet scales down to minReplicas
   (observed live: 1 → 3 on load, 3 → 1 after idle).
-- Validated live 2026-10-10: a single real image-embedding request scaled the
-  fleet 1 -> 3 (one pod per iGPU node), each pod loaded the visual model via
-  OpenVINOExecutionProvider on its own iGPU, and inference returned HTTP 200
-  from node1 (UHD770), nuc (UHD660) and z690 (UHD770).
+- Validated live 2026-10-10: **IMPORTANT CORRECTION** — deeper testing with
+  `intel_gpu_top` showed 0% GPU engine utilization during 118 sustained
+  predictions, and Level Zero `zeInit` fails inside every pod. Despite the
+  OpenVINOExecutionProvider being listed, inference has been silently running
+  on CPU. The GPU was never proven working in-pod; the provider listing alone
+  is not evidence of GPU execution.
 - Scale up: aggressive (up to 100% / +1 pod per 15s, no stabilization) to fill
   all three GPU slots quickly during smart-search / face-detection bursts.
 - Scale down: conservative (1 pod per 60s after 300s stabilization) since GPU
   model loading is expensive and flapping wastes inference time.
+
+## Known issue: GPU in-pod init fails (inference runs on CPU)
+
+Deeper testing on 2026-10-10 found Level Zero `zeInit` fails inside every ML
+pod, so OpenVINO silently falls back to CPU. Per-node status:
+
+- `k3s-node1`: host Level Zero stack is an inconsistent mix (loader requires
+  GLIBCXX_3.4.32 that the host libstdc++ lacks); in-pod `zeInit` ->
+  `0x78000002` (device lost).
+- `k3s-server-nuc`: the host has TWO GPUs (Virtio + passed-through Intel);
+  the device plugin hands out correct Intel nodes, but host-side `zeInit`
+  HANGS (>2 min), and `dmesg` shows missing DMC firmware
+  (`i915/kbl_dmc_ver1_04.bin` ENOENT).
+- `k3s-worker-z690`: in-pod `zeInit` -> `0x78000001`.
+
+The gmmlib + Level Zero layer mounts added to the pod spec are necessary
+(verified: with the host's gmmlib mounted, `zeInit` succeeds in a minimal
+pod) but not sufficient on these hosts. Next steps are host-level, not
+manifest-level:
+
+1. Install `linux-firmware` on nuc and reboot the VM; verify host-side
+   `clinfo` / Level Zero works BEFORE blaming the container mounts.
+2. On node1, install a consistent Level Zero + compute-runtime stack from
+   Intel's apt repo (same versions as nuc/z690).
+3. Validate host-side first with `sudo clinfo` on each node, then re-test
+   in-pod `zeInit` and re-check `intel_gpu_top` utilization during inference.
