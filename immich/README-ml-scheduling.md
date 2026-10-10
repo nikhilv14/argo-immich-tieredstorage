@@ -8,17 +8,18 @@
 >   unprivileged plugin pod crashed on socket bind (`permission denied`).
 >   Fixed with `sudo chown root:root /var/lib/kubelet/device-plugins` on the
 >   node + pod restart. The node was also cordoned; it has been uncordoned.
-> - `k3s-server-nuc`: it is a VM exposing only a Red Hat Virtio GPU to the
->   guest (DRIVER=virtio-pci). The UHD660 lives on the VM host and is NOT
->   visible to k3s, so this node cannot host a GPU ML pod today. Until iGPU
->   passthrough/SR-IOV or a host-level k3s move is done, only 2 GPU slots
->   exist and a 3rd ML replica will stay Pending.
-> - `k3s-server-hp-g9`: also a virtio VM; carries the stale
+> - `k3s-server-nuc`: initially exposed only a Red Hat Virtio GPU (DRIVER=virtio-pci)
+>   and advertised no i915. After a VM reboot on 2026-10-10 the Intel iGPU
+>   (UHD660) became visible and the node now advertises
+>   `gpu.intel.com/i915=1`. All 3 tier=1 nodes now have one GPU slot each.
+>   Caveat: the plugin pod on nuc shows periodic restarts; if i915 capacity
+>   drops again after a reboot, re-check `/dev/dri` and the plugin pod logs.
+> - `k3s-server-hp-g9`: a virtio VM; carries the stale
 >   `intel.feature.node.kubernetes.io/gpu=true` label despite having no usable
 >   GPU. Harmless (no i915 capacity), but the label is misleading.
 >
-> HPA maxReplicas stays at 3 so the fleet self-heals to 3 replicas as soon as
-> the third GPU slot appears.
+> HPA maxReplicas is 3, matching the 3 tier=1 nodes x 1 iGPU each. The
+> full fleet of 3 GPU-backed ML replicas is reachable as of 2026-10-10.
 
 ## Node tags (applied live on 2026-10-10; script kept for re-apply)
 
