@@ -138,6 +138,12 @@ spec:
               mountPath: /cache
             - name: dev-dri
               mountPath: /dev/dri
+              # Read-only: opening the DRM render device does not require a
+              # writable mount. This also avoids a containerd failure on LXC
+              # nodes (z690) where creating the by-path symlink target inside
+              # a rw mount fails with "file exists". The Intel GPU plugin pod
+              # uses the same read-only pattern successfully.
+              readOnly: true
             - name: ze-loader
               mountPath: /usr/lib/x86_64-linux-gnu/libze_loader.so.1
             - name: ze-gpu-driver
