@@ -12,9 +12,13 @@
 >   - Level Zero libs were missing (Debian repos don't ship them): installed
 >     `intel-level-zero-gpu` + `libze1` from Intel's apt repo
 >     (`repositories.intel.com/gpu/ubuntu noble`) on z690 and nuc.
->   - Longhorn prerequisites: installed `open-iscsi` and labeled the node
->     `longhorn-system=true` (the manager DaemonSet only runs on labeled
->     nodes; z690 joined 29h after the label was set on the others).
+>   - Longhorn prerequisites: installed `open-iscsi` and `nfs-common`, and
+>     labeled the node `longhorn-system=true` (the manager DaemonSet only
+>     runs on labeled nodes; z690 joined 29h after the label was set on the
+>     others). Without `nfs-common`, Longhorn's RWX (NFS) mounts fail on
+>     Debian 13 with "fsconfig() failed: NFS: mount program didn't pass
+>     remote address" because util-linux 2.41 falls back to the in-kernel
+>     fsconfig path when `/sbin/mount.nfs` is missing.
 >   - The LXC only bind-mounts the host render node as renderD128, so card0
 >     was missing while present in sysfs; created the device node
 >     (`mknod /dev/dri/card0 c 226 0`) and purged the stale udev entry
@@ -82,14 +86,11 @@ and future model-aware scheduling.
 - `minReplicas: 1`, `maxReplicas: 3`: ceiling = 3 tier=1 nodes x 1 iGPU each.
   Scaling past 3 can only create Pending pods.
 - Metrics: CPU 75% and memory 80% utilization (max of the two triggers scale).
-  **Note:** loaded models keep resident memory at ~150%+ of the 512Mi request,
-  so once all three pods have served at least one request, the memory metric
-  effectively keeps the fleet at 3 warm replicas instead of scaling down to a
-  cold pod. That is intentional: warm pods avoid re-downloading/re-loading
-  models on every burst. Node headroom is large (13-41% used). If you prefer
-  scale-to-one at idle, remove the memory metric and lower the model-cache
-  footprint (e.g. set `MACHINE_LEARNING_MODEL_TTL`-style cache eviction or
-  raise the memory request so utilization stays below 80%).
+  Note on memory: resident model memory spikes well above the 512Mi request
+  while models are loaded, which keeps the fleet scaled up during and shortly
+  after active use. Immich ML unloads models after an idle timeout, memory
+  drops back below target, and the fleet scales down to minReplicas
+  (observed live: 1 → 3 on load, 3 → 1 after idle).
 - Validated live 2026-10-10: a single real image-embedding request scaled the
   fleet 1 -> 3 (one pod per iGPU node), each pod loaded the visual model via
   OpenVINOExecutionProvider on its own iGPU, and inference returned HTTP 200
