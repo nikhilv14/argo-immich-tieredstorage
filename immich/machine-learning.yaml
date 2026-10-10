@@ -15,8 +15,16 @@ spec:
       labels:
         app.kubernetes.io/name: immich-machine-learning
     spec:
-      # No nodeSelector: ML pods may run on any node with the GPU feature label
-      # (required via nodeAffinity below); all nodes are labeled gpu=true.
+      # Tiered scheduling via node tags (see label-ml-nodes.sh):
+      #   tier=1  k3s-node1        (UHD770)
+      #   tier=1  k3s-server-nuc   (UHD660)
+      #   tier=1  k3s-worker-z690  (UHD770)
+      #   tier=2  k3s-server-hp-g9 (no iGPU, CPU-only, LAST priority)
+      # The gpu.intel.com/i915 limit below is the hard gate: only nodes
+      # advertising that extended resource (the 3 tier=1 nodes via the Intel
+      # device plugin) can actually accept a pod. tier=2 stays eligible on
+      # paper as the last-resort fallback, but a pod can only land there if
+      # the i915 limit is dropped.
 
       topologySpreadConstraints:
         - maxSkew: 1
@@ -28,13 +36,46 @@ spec:
 
       affinity:
         nodeAffinity:
+          # HARD requirement: either a tagged ML tier node, or (pre-tagging
+          # grace) any node the Intel device plugin has GPU-labeled. hp-g9 is
+          # naturally excluded from the second term: it has no iGPU, so the
+          # device plugin never labels it.
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
+                  - key: immich.ml/tier
+                    operator: In
+                    values: ["1", "2"]
+              - matchExpressions:
                   - key: intel.feature.node.kubernetes.io/gpu
                     operator: In
-                    values:
-                      - "true"
+                    values: ["true"]
+          # SOFT preference: tier=1 GPU nodes win by a landslide. A tier=2
+          # (CPU) node is only ever picked when no tier=1 node is feasible.
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: immich.ml/tier
+                    operator: In
+                    values: ["1"]
+            - weight: 10
+              preference:
+                matchExpressions:
+                  - key: immich.ml/tier
+                    operator: In
+                    values: ["2"]
+        podAntiAffinity:
+          # Spread replicas across nodes so each iGPU serves at most one ML
+          # pod. Soft: the i915 limit (1 device per GPU node) already enforces
+          # this, so do not hard-block rescheduling if a GPU node goes down.
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 50
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: immich-machine-learning
 
       securityContext:
         runAsUser: 1000
@@ -50,6 +91,9 @@ spec:
           imagePullPolicy: IfNotPresent
           # GPU via Intel device plugin: advertises gpu.intel.com/i915, mounts
           # /dev/dri and fixes the cgroup-v2 device filter (privileged cannot)
+          # Each tier=1 node exposes 1 i915 device, so this hard limit pins the
+          # ML replica ceiling to 3 (one pod per iGPU) and keeps CPU (hp-g9)
+          # out of the GPU pool entirely.
           resources:
             requests:
               cpu: 250m
