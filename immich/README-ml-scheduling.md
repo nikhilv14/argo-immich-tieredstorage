@@ -116,14 +116,48 @@ pod, so OpenVINO silently falls back to CPU. Per-node status:
   (`i915/kbl_dmc_ver1_04.bin` ENOENT).
 - `k3s-worker-z690`: in-pod `zeInit` -> `0x78000001`.
 
-The gmmlib + Level Zero layer mounts added to the pod spec are necessary
-(verified: with the host's gmmlib mounted, `zeInit` succeeds in a minimal
-pod) but not sufficient on these hosts. Next steps are host-level, not
-manifest-level:
+## RESOLVED (2026-10-10 evening): GPU inference works on all 3 tier=1 nodes
 
-1. Install `linux-firmware` on nuc and reboot the VM; verify host-side
-   `clinfo` / Level Zero works BEFORE blaming the container mounts.
-2. On node1, install a consistent Level Zero + compute-runtime stack from
-   Intel's apt repo (same versions as nuc/z690).
-3. Validate host-side first with `sudo clinfo` on each node, then re-test
-   in-pod `zeInit` and re-check `intel_gpu_top` utilization during inference.
+The three failures had THREE different root causes, one per node. All fixed
+and validated with `intel_gpu_top` RCS busy% during sustained in-pod
+predictions:
+
+| Node              | Root cause                                                                                                         | Fix                                                                                    | Proof                              |
+|-------------------|--------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|------------------------------------|
+| k3s-server-nuc    | (a) missing DMC firmware; (b) **Virtio GPU KMS deadlock**: virtio-gpu fbdev worker spins forever in                 | (a) `firmware-misc-nonfree` (was pending reboot); (b) blacklist `virtio_gpu`            | RCS 88-90% busy, ~1.1 GHz          |
+|                   | `virtio_gpu_queue_fenced_ctrl_buffer` (fence never completes — hypervisor), holding the DRM modeset                 | (`/etc/modprobe.d/blacklist-virtio-gpu.conf`: `blacklist` + `install ... /bin/false`),  |                                    |
+|                   | lock; every DRM open (incl. Level Zero loader enumerating card0) blocks -> host zeInit HUNG and the                 | then reboot. Intel iGPU is now the only DRM device (card0/renderD128).                  |                                    |
+|                   | console froze mid-boot ("snd_hda_intel ... no codec found!" is the last visible line — cosmetic).                   | NOTE: Proxmox console shows a frozen last frame after SeaBIOS/GRUB — expected.         |                                    |
+| k3s-node1         | Rogue hand-installed binaries layered on the jammy-repo stack: `libze_loader.so.1.20.6` (needs GLIBCXX_3.4.32,      | Deleted rogue loader, restored package symlink -> `1.11.0`; moved rogue driver         | RCS 66-86% busy, ~1.2 GHz          |
+|                   | absent on jammy) retargeted onto `libze_loader.so.1`, plus noble-era driver `libze_intel_gpu.so.1.17.39758`         | to `/root/rogue-libze_intel_gpu.so.1.17.39758.bak`. `ldconfig` kept re-flipping the     |                                    |
+|                   | symlinked as the driver (needs igc/gmmlib versions jammy does not have). ldconfig prefers the highest               | driver symlink, so the rogue .so had to leave the library path entirely. Jammy set:     |                                    |
+|                   | SONAME version -> must remove the rogue file, not just relink.                                                      | `intel-level-zero-gpu 1.3.26241.33-647~22.04`, `level-zero 1.11.0`, `libigc1 1.0.13822` |                                    |
+| k3s-worker-z690   | Host/LXC Level Zero was already fine; in-pod `0x78000001` traced to **device-node permissions**: the Intel          | Manifest fix (machine-learning.yaml): `supplementalGroups: [109, 44, 992]` —           | RCS 56% busy, ~810 MHz             |
+|                   | device plugin injects `/dev/dri/by-path/*` as device nodes with **host ownership** (root:render), and Debian's      | 109 = render GID on Ubuntu (node1), 992 = render GID on Debian (nuc, z690).            |                                    |
+|                   | render GID is 992, not 109. NEO (compute-runtime) enumerates through by-path; open() -> EACCES -> DEVICE_LOST.       |                                                                                        |                                    |
+
+Diagnostic method that found the z690 in-pod failure: ephemeral debug
+container (`kubectl debug --target=<ml-container>`) sharing the pod PID
+namespace, strace attached to a sleeping zeInit python process — the
+`openat("/dev/dri/by-path/...-render") = -1 EACCES` was unambiguous. A
+pod-internal strace requires attaching as the pod user (1000); root cannot
+attach inside the container's userns view.
+
+Host-side validation (all nodes): `python3 ctypes` zeInit + zeDriverGet
+against `libze_loader.so.1` returns `0x0` with >=1 driver; on the host also
+retest as uid 1000 with the node's REAL render GID (`setpriv --reuid 1000
+--regid 1000 --groups <render-gid>`) because root passes even when the
+unprivileged path is broken.
+
+In-pod validation (all nodes): zeInit `0x0` + `drivers=1`; 135/135
+concurrent `/predict` calls (clip visual ViT-B-32__openai + buffalo_l
+facial detection/recognition) across the 3 replicas; per-node
+`intel_gpu_top`: z690 RCS 56.12%, nuc RCS 89.9%, node1 RCS 86.2% busy.
+HPA held 3/3 during load (memory 104%/80%), matching documented scale
+behavior.
+
+ML API note (v3.3.1): `/predict` takes multipart `image` file +
+`entries` form field = JSON of PipelineRequest: e.g.
+`{"clip":{"visual":{"modelName":"ViT-B-32__openai"}},"facial-recognition":{"detection":{"modelName":"buffalo_l"},"recognition":{"modelName":"buffalo_l"}}}`.
+The request config is STRICT (extra=forbid) — do not pass option keys like
+`minScore` inside task slots; omit options entirely and defaults apply.
