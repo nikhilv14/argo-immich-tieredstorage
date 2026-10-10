@@ -17,6 +17,26 @@ spec:
       labels:
         app.kubernetes.io/name: immich-redis
     spec:
+      affinity:
+        # k3s-worker-z690 cannot attach Longhorn volumes (CSI DeadlineExceeded,
+        # LXC-layer limitation — see database/README-db-affinity.md), so redis
+        # must never land there. node1 keeps it next to its volume replica.
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - k3s-worker-z690
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - k3s-node1
       containers:
         - name: redis
           image: redis:6.2-alpine
