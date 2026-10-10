@@ -21,6 +21,13 @@
 >     (`/run/udev/data/c226:0`) that kept re-creating a dangling
 >     `/dev/dri/by-path/pci-0000:00:02.0-card` symlink, which broke
 >     container spec generation.
+>   - **Boot durability**: devtmpfs and /run are ephemeral, so the above fix
+>     does not survive a container restart. A persistent oneshot unit
+>     `fix-dri-dev.service` (`/usr/local/sbin/fix-dri-dev.sh`) re-creates
+>     card0 and prunes dangling by-path symlinks at boot, before k3s-agent.
+>     Verified by simulating the failure (rm card0 + recreate dangling
+>     symlink) and re-running the script, then confirming a freshly
+>     scheduled ML pod performs OpenVINO GPU inference on z690.
 >   - The ML pod skips the projected service-account token (a projected
 >     tmpfs mount failed while the chown pass was still missing).
 >   - The `/dev/dri` hostPath was dropped in favor of device-plugin node
