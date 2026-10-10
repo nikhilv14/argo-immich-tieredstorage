@@ -75,6 +75,18 @@ and future model-aware scheduling.
 - `minReplicas: 1`, `maxReplicas: 3`: ceiling = 3 tier=1 nodes x 1 iGPU each.
   Scaling past 3 can only create Pending pods.
 - Metrics: CPU 75% and memory 80% utilization (max of the two triggers scale).
+  **Note:** loaded models keep resident memory at ~150%+ of the 512Mi request,
+  so once all three pods have served at least one request, the memory metric
+  effectively keeps the fleet at 3 warm replicas instead of scaling down to a
+  cold pod. That is intentional: warm pods avoid re-downloading/re-loading
+  models on every burst. Node headroom is large (13-41% used). If you prefer
+  scale-to-one at idle, remove the memory metric and lower the model-cache
+  footprint (e.g. set `MACHINE_LEARNING_MODEL_TTL`-style cache eviction or
+  raise the memory request so utilization stays below 80%).
+- Validated live 2026-10-10: a single real image-embedding request scaled the
+  fleet 1 -> 3 (one pod per iGPU node), each pod loaded the visual model via
+  OpenVINOExecutionProvider on its own iGPU, and inference returned HTTP 200
+  from node1 (UHD770), nuc (UHD660) and z690 (UHD770).
 - Scale up: aggressive (up to 100% / +1 pod per 15s, no stabilization) to fill
   all three GPU slots quickly during smart-search / face-detection bursts.
 - Scale down: conservative (1 pod per 60s after 300s stabilization) since GPU
