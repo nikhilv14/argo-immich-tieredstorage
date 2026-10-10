@@ -36,10 +36,15 @@ spec:
         app: immich-db
     spec:
       affinity:
+        # SOFT preference (was: hard pin). k3s-node1 keeps the DB in normal
+        # operation (its Longhorn replica of immich-db-primary is local there).
+        # On a node1 outage the pod can now reschedule anywhere — most usefully
+        # k3s-server-hp-g9, which holds the second replica of the DB volume.
         nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
                   - key: kubernetes.io/hostname
                     operator: In
                     values:
