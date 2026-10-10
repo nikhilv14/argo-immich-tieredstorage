@@ -147,6 +147,10 @@ spec:
             # driver + gmmlib versions match per node.
             - name: gmmlib
               mountPath: /usr/lib/x86_64-linux-gnu/libigdgmm.so.12
+            - name: ze-tracing
+              mountPath: /usr/lib/x86_64-linux-gnu/libze_tracing_layer.so.1
+            - name: ze-validation
+              mountPath: /usr/lib/x86_64-linux-gnu/libze_validation_layer.so.1
       volumes:
         - name: model-cache
           emptyDir: {}  # or use a PVC if you want to persist downloaded models
@@ -166,6 +170,14 @@ spec:
         - name: gmmlib
           hostPath:
             path: /usr/lib/x86_64-linux-gnu/libigdgmm.so.12
+            type: File
+        - name: ze-tracing
+          hostPath:
+            path: /usr/lib/x86_64-linux-gnu/libze_tracing_layer.so.1
+            type: File
+        - name: ze-validation
+          hostPath:
+            path: /usr/lib/x86_64-linux-gnu/libze_validation_layer.so.1
             type: File
 
 ---
