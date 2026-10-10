@@ -140,6 +140,13 @@ spec:
               mountPath: /usr/lib/x86_64-linux-gnu/libze_loader.so.1
             - name: ze-gpu-driver
               mountPath: /usr/lib/x86_64-linux-gnu/libze_intel_gpu.so.1
+            # The host compute-runtime driver requires ITS OWN gmmlib. The
+            # image ships a newer libigdgmm.so.12 that silently breaks
+            # Level Zero init inside the pod (zeInit -> UNINITIALIZED),
+            # making OpenVINO fall back to CPU. Mount the host's gmmlib so
+            # driver + gmmlib versions match per node.
+            - name: gmmlib
+              mountPath: /usr/lib/x86_64-linux-gnu/libigdgmm.so.12
       volumes:
         - name: model-cache
           emptyDir: {}  # or use a PVC if you want to persist downloaded models
@@ -155,6 +162,10 @@ spec:
         - name: ze-gpu-driver
           hostPath:
             path: /usr/lib/x86_64-linux-gnu/libze_intel_gpu.so.1
+            type: File
+        - name: gmmlib
+          hostPath:
+            path: /usr/lib/x86_64-linux-gnu/libigdgmm.so.12
             type: File
 
 ---
