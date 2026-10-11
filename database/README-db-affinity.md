@@ -30,8 +30,34 @@ Procedure used (safe: Longhorn volume + replicas are never touched):
 5. Recreate the PVC with `spec.volumeName: <pv>` and scale the STS back up
 6. Postgres opens the existing pgdata normally (verified: 7102 assets intact)
 
-NOTE: `immich-redis`'s PV (`pvc-820332aa-...`) has the SAME node1 pin and the
-same latent failover gap. Same procedure applies if it is to be fixed.
+NOTE: `immich-redis`'s PV (`pvc-820332aa-...`) had the SAME node1 pin — fixed
+2026-10-11 with the same procedure (PV recreated without nodeAffinity,
+Retain policy, PVC name-bound via PV claimRef). Redis data intact.
+
+## Redis placement (2026-10-11)
+
+After the PV swap, redis immediately cycled in `ContainerCreating` on
+`k3s-worker-z690` — the same Longhorn attach failure the DB hit. The redis
+Deployment had no node affinity at all. It now has:
+- `requiredDuringScheduling`: hostname `NotIn [k3s-worker-z690]` (z690 cannot
+  host ANY Longhorn-attached volume until that is debugged)
+- `preferredDuringScheduling` weight 100: `k3s-node1` (keeps it next to its
+  volume replica, matching the old pin's intent)
+
+## ArgoCD gotchas encountered (worth remembering)
+
+- The `root` app is an app-of-apps with selfHeal: it re-applies the CHILD
+  Application objects, silently re-enabling `syncPolicy.automated` on them.
+  To do manual surgery (scale to 0, PV/PVC swaps), disable selfHeal on
+  `root` FIRST, then on the child apps, and re-enable afterwards.
+- The redis Deployment is tracked by `immich-database` (not
+  `immich-storage`); DB PVCs are in `immich-storage`.
+- A failing sync RETRIES indefinitely (3 min apart) and re-applies ALL
+  resources in the app each time — it fought the redis scale-down even with
+  selfHeal "disabled" (the in-flight op predated the change). Root cause of
+  the loop: live PVC `immich-db-primary` had `volumeName` set while the git
+  manifest did not (immutable field → apply error). Fixed by adding
+  `volumeName: pvc-9439e16c-...` to `storage/pvc-config.yaml`.
 
 ## Failover test result (cordon test)
 
