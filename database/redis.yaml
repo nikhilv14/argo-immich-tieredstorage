@@ -18,9 +18,12 @@ spec:
         app.kubernetes.io/name: immich-redis
     spec:
       affinity:
-        # k3s-worker-z690 cannot attach Longhorn volumes (CSI DeadlineExceeded,
-        # LXC-layer limitation — see database/README-db-affinity.md), so redis
-        # must never land there. node1 keeps it next to its volume replica.
+        # k3s-worker-z690 cannot attach Longhorn volumes: kernel iSCSI netlink
+        # is init_net-only, so iscsid inside the privileged LXC gets
+        # ECONNREFUSED and every attach times out (CSI DeadlineExceeded).
+        # Verified 2026-10-11, unfixable without sharing the host netns or
+        # running a VM — see database/README-db-affinity.md. node1 keeps it
+        # next to its volume replica.
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:

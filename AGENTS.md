@@ -39,9 +39,11 @@ Read this plus the deep-dive docs before changing anything:
    uid) → PVC recreate. Watch for StatefulSet `volumeClaimTemplates`
    auto-recreating a deleted PVC that then binds to a fresh EMPTY volume
    (scale the STS to 0 first).
-5. **`k3s-worker-z690` cannot attach Longhorn volumes** (CSI
-   DeadlineExceeded, LXC limitation). Do not schedule stateful workloads
-   there; redis already hard-excludes it.
+5. **`k3s-worker-z690` cannot attach Longhorn volumes** (root-caused
+   2026-10-11: kernel iSCSI netlink socket is `init_net`-only, so iscsid in
+   the LXC netns gets `ECONNREFUSED`; unfixable without sharing the host
+   netns or running a VM — see `database/README-db-affinity.md`). Do not
+   schedule stateful workloads there; DB and redis hard-exclude it.
 6. DB and redis PVs are `Retain`-policy and name-bound via claimRef. Do not
    delete the Longhorn volumes.
 7. The DB pod/redis are pinned to node1 only by SOFT preference — on a node1

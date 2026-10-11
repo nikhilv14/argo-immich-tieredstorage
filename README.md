@@ -32,7 +32,7 @@ Deep-dive docs:
 |-------------------|-------------------------|--------------------------------------------|
 | `k3s-node1`       | VM (Ubuntu 22.04)       | runs almost everything: argocd, monitoring, DB, redis, ingress, Longhorn core; UHD770 iGPU |
 | `k3s-server-nuc`  | VM (Debian 13)          | UHD660 iGPU (passed through); console is **serial only** (ttyS0, Display:none) |
-| `k3s-worker-z690` | privileged LXC (Debian 13) | UHD770 iGPU; **cannot attach Longhorn volumes** (CSI attach fails — see DB README) |
+| `k3s-worker-z690` | privileged LXC (Debian 13) | UHD770 iGPU; **cannot attach Longhorn volumes** — kernel iSCSI netlink is init_net-only, iscsid in the LXC netns gets ECONNREFUSED (root-caused 2026-10-11, see DB README); DB+redis hard-exclude it |
 | `k3s-server-hp-g9`| VM                      | CPU only (immich.ml/tier=2); holds the 2nd Longhorn replica of the DB volume |
 
 Storage: Longhorn (`ssd-cache` SC, 2 replicas) for hot data; `nas-rwx`
