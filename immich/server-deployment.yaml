@@ -23,6 +23,22 @@ spec:
       # No nodeSelector: server pods may run on any node (all shared PVCs are RWX)
       # 2. GRANT GPU PERMISSIONS
       affinity:
+        # k3s-worker-z690 is an LXC container: the kernel's iSCSI netlink
+        # listener only exists in init_net (PVE host netns), so iscsid inside
+        # the container gets ECONNREFUSED and Longhorn engines/share-managers
+        # can never attach volumes there. Pods landing on it drag the volume
+        # attachment to z690 -> engine crash-loop -> stuck Init pods.
+        # RWX volumes are still mountable from z690 as cross-node NFS mounts
+        # of share-managers running on iscsi-capable nodes, so only the
+        # scheduling of the server pods (which trigger the attachment) is
+        # restricted here.
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values: ["k3s-worker-z690"]
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 100
