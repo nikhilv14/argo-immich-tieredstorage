@@ -50,7 +50,6 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  volumeName: pvc-61161c6a-f054-428d-9700-ff4e64a3bd73
   storageClassName: ssd-cache
   resources:
     requests:
