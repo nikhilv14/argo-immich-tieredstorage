@@ -34,6 +34,17 @@ spec:
             matchLabels:
               app.kubernetes.io/name: immich-machine-learning
 
+      # z690 carries lxc-no-iscsi=true:NoSchedule (LXC lacks kernel iSCSI
+      # netlink -> Longhorn engines cannot attach there). Harmless for ML:
+      # the pod mounts no PVCs at all (/cache is emptyDir) and never triggers
+      # a volume attachment, so it is safe to tolerate the taint and let the
+      # pod use z690's free i915 slot.
+      tolerations:
+        - key: lxc-no-iscsi
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+
       affinity:
         nodeAffinity:
           # HARD requirement: either a tagged ML tier node, or (pre-tagging
