@@ -58,6 +58,11 @@ spec:
       initContainers:
         - name: migrate-to-tiered-storage
           image: alpine:3.19
+          # Runs as root to fix NFS volume permissions (dataset created as
+          # root:root 0770 by democratic-csi; pod runs as uid 1000).
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
           command:
             - sh
             - -c
@@ -161,6 +166,16 @@ spec:
               echo "Step 9: Creating migration lock..."
               echo "Migration completed at $(date -u)" > "$MIGRATION_MARKER"
               echo "Lock file created"
+              
+              # Step 10: Fix NFS dataset-root ownership (root:root 0770 by
+              # democratic-csi; main container runs as uid 1000). Non-recursive
+              # on purpose: recursive chown of the 2Ti library over NFS would
+              # take hours. Dataset contents were migrated with uid 1000 and
+              # only the dataset ROOT needs the ownership fix.
+              echo ""
+              echo "Step 10: Fixing dataset-root ownership for uid 1000..."
+              chown 1000:1000 /upload-pvc-root /cache-pvc-root /profile-pvc-root /sync-queue-pvc-root /library-pvc-root 2>/dev/null || true
+              echo "Ownership fixed"
               
               echo ""
               echo "========== Migration completed successfully =========="
