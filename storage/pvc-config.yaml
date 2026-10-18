@@ -20,8 +20,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  volumeName: pvc-4502ea0f-80d3-488f-a827-b2bc6ff742f3
-  storageClassName: ssd-cache
+  volumeName: pvc-21fd1c43-dc1a-4e4d-8851-82d15592d8d5
+  storageClassName: truenas-nfs
   resources:
     requests:
       storage: 50Gi
@@ -35,8 +35,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  volumeName: pvc-aa53b0c2-039f-4d27-91fc-8d5c40802262
-  storageClassName: ssd-cache
+  volumeName: pvc-055a2d63-3489-4649-9525-f5c83a27a86c
+  storageClassName: truenas-nfs
   resources:
     requests:
       storage: 100Gi
@@ -50,7 +50,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: ssd-cache
+  volumeName: pvc-dd15657c-09aa-47cb-9ed9-6badfaf6feb7
+  storageClassName: truenas-nfs
   resources:
     requests:
       storage: 5Gi
@@ -64,11 +65,11 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: ssd-cache
-  # Pinned to the retained Longhorn PV (PV nodeAffinity was removed to allow
-  # node failover; see database/README-db-affinity.md). VolumeName is set
-  # because the claim pre-binds to that specific retained PV.
-  volumeName: pvc-9439e16c-af1f-4322-99ff-57064989aae0
+  storageClassName: truenas-iscsi
+  # Pinned to the live democratic-csi (TrueNAS iSCSI) PV. VolumeName is set
+  # because the claim pre-binds to that specific PV; required so ArgoCD stays
+  # in sync. See database/README-db-affinity.md for node placement notes.
+  volumeName: pvc-dab66f83-afb5-492d-abb1-139a3c5bd67e
   resources:
     requests:
       storage: 20Gi
@@ -96,8 +97,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  volumeName: pvc-27f9e2c7-f32a-4911-a62a-f7221b728ffe
-  storageClassName: ssd-cache
+  volumeName: pvc-95d17e0a-4d55-4d00-a473-eb5440ec6901
+  storageClassName: truenas-nfs
   resources:
     requests:
       storage: 1Gi
