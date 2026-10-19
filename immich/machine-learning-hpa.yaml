@@ -24,9 +24,16 @@ spec:
     - type: Resource
       resource:
         name: memory
+        # averageValue (absolute) instead of Utilization: onnxruntime never
+        # returns model memory to the OS after unload (arena caching), so RSS
+        # idles at ~280Mi avg vs the 512Mi request. At an 80% Utilization
+        # target that pins desired = ceil(3 * 54/80) = 3 forever — the fleet
+        # could never scale back to 1 while idle. With 1Gi, idle avg is ~27%
+        # -> desired 1; bursts still scale up via the CPU 75% target, and
+        # memory only triggers scaling if the fleet truly exceeds ~1Gi avg.
         target:
-          type: Utilization
-          averageUtilization: 80
+          type: AverageValue
+          averageValue: 1Gi
   behavior:
     scaleUp:
       # Fill GPU slots quickly during burst jobs (smart-search / face detection)
