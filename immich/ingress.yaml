@@ -6,10 +6,27 @@ metadata:
   annotations:
     # Increase body size for large video uploads!
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    cert-manager.io/cluster-issuer: "internal-ca"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - immich.home
+        - photos.daemonagent.net
+      secretName: immich-tls
   rules:
     - host: immich.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: immich-server
+                port:
+                  number: 2283
+    - host: photos.daemonagent.net
       http:
         paths:
           - path: /
