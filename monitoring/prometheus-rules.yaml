@@ -12,22 +12,45 @@ spec:
     
     # CRITICAL: NAS Storage Unavailable
     - alert: ImmichNASUnavailable
-      # kube_persistentvolumeclaim_status_phase carries the claim name in the
-      # `persistentvolumeclaim` label (not `claim`); the previous expression
-      # never matched anything and absent() made this alert fire permanently.
+      # Deliberately NOT absent() on a kube-state-metrics series. When Prometheus
+      # cannot write its own WAL (read-only LUN after a NAS reboot, EIO on the PVC)
+      # every instant query returns an empty vector and an absent() rule fires while
+      # the claim is Bound and writable. That produced three false critical pages
+      # (Nov 12 / 13 / 14, all firing at 02:51 after the 02:42 array reboot).
+      # Two arms instead:
+      #   1. a claim genuinely reporting a non-Bound phase (Pending/Lost/Released), or
+      #   2. kubelet stopped reporting the volume AND the rest of monitoring is healthy
+      #      (count(up) > 20). During blindness count(up) is empty, so the guard fails
+      #      and this alert stays silent — a Prometheus outage is not an Immich outage.
       expr: |
-        absent(kube_persistentvolumeclaim_status_phase{persistentvolumeclaim="immich-library", namespace="immich", phase="Bound"})
+        max by (persistentvolumeclaim) (
+          kube_persistentvolumeclaim_status_phase{
+            namespace="immich",
+            persistentvolumeclaim=~"immich-library|immich-upload|immich-cache|immich-profile|immich-sync-queue",
+            phase!="Bound"
+          }
+        ) == 1
+        or
+        (
+          absent(kubelet_volume_stats_available_bytes{namespace="immich",persistentvolumeclaim="immich-library"})
+          and on() (count(up) > 20)
+        )
       for: 5m
       labels:
         severity: critical
         component: storage
         tier: nas
       annotations:
-        summary: "Immich NAS storage unavailable for 5 minutes"
+        summary: "Immich storage {{ $labels.persistentvolumeclaim }} not Bound / mount not reporting"
         description: |
-          Immich is operating in fallback mode using SSD cache only.
-          Recent uploads will be queued but older photos may be inaccessible.
-          Check NAS server connectivity and mount status.
+          Either the claim is reporting a non-Bound phase, or kubelet stopped reporting
+          volume stats for it, while the rest of monitoring is healthy (so this is not a
+          Prometheus outage). Writes to that tier fail until the mount is restored.
+          Check: kubectl -n immich get pvc; kubectl -n immich describe pvc <name>;
+          from the host: touch probe under
+          /var/lib/kubelet/pods/*/volumes/kubernetes.io~csi/<pvc>/mount.
+          A read-only remount still reports Bound and volume stats, so this rule cannot
+          see it — that case shows up as app write errors (e.g. Redis RDB save failures).
         runbook_url: "https://github.com/nikhilv14/argo-immich-tieredstorage/docs/runbooks/nas-unavailable.md"
     
     # WARNING: Upload Queue Growing Too Large
