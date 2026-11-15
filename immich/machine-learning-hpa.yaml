@@ -8,12 +8,15 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: immich-machine-learning
-  # Replica ceiling is GPU capacity: 3 tier=1 nodes x 1 iGPU each (UHD770,
-  # UHD660, UHD770). Every replica claims gpu.intel.com/i915: 1, so scaling
-  # past 3 would only ever produce Pending pods (hp-g9 is CPU-only and is the
-  # last-priority fallback, not an autoscaling target).
+  # Replica ceiling is REAL GPU capacity: only the two tier=1 nodes advertise
+  # gpu.intel.com/i915 (k3s-node1 UHD770, k3s-server-nuc). hp-g9 carries
+  # tier=2 and intel gpu=true but registers no i915 allocatable, so it is the
+  # CPU-only fallback and cannot host a GPU replica. Every replica claims
+  # i915: 1, so a 3rd replica is unschedulable forever -> permanent Pending pod
+  # and a KubePodNotReady page. Keep max at the number of allocatable slots and
+  # bump it only when hp-g9 actually advertises i915.
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 2
   metrics:
     - type: Resource
       resource:
