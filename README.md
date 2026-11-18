@@ -35,8 +35,16 @@ Deep-dive docs:
 | `k3s-worker-z690` | privileged LXC (Debian 13) | UHD770 iGPU; **cannot attach Longhorn volumes** — kernel iSCSI netlink is init_net-only, iscsid in the LXC netns gets ECONNREFUSED (root-caused 2026-10-11, see DB README); DB+redis hard-exclude it |
 | `k3s-server-hp-g9`| VM                      | CPU only (immich.ml/tier=2); holds the 2nd Longhorn replica of the DB volume |
 
-Storage: Longhorn (`ssd-cache` SC, 2 replicas) for hot data; `nas-rwx`
-(NFS CSI) for the 2Ti library and WAL archive.
+Storage: Longhorn (`ssd-cache` SC, 2 replicas) for hot data; `truenas-nfs`
+(democratic-csi) for the library (`immich-library-nfs`, 2Ti), upload, cache,
+profile and sync-queue; `nas-rwx` (nfs.csi) only for the WAL archive.
+
+The library moved off `nas-rwx` on 2026-11-18: that class mounts
+`soft,timeo=30`, which fails a write after ~3s instead of retrying and left 10
+originals truncated in the 2026-01-21 import. `truenas-nfs` mounts
+`hard,timeo=600,nconnect=8` and gives the library its own TrueNAS dataset
+(`k8s-nfs/vols/pvc-*`) and snapshot target. The old `immich-library` PVC is
+retained, unreferenced, as a rollback until the copy is confirmed good.
 
 ## Operational rules
 
