@@ -58,7 +58,7 @@ Read this plus the deep-dive docs before changing anything:
 - `k3s-node1` runs the jammy-repo Level Zero stack
   (`intel-level-zero-gpu 1.3.26241.33`, `level-zero 1.11.0`) — do not "upgrade"
   it to noble versions (GLIBCXX_3.4.32 unavailable on jammy).
-- ML `/predict` API (v3.3.1): multipart `image` + `entries` JSON
+- ML `/predict` API (v3.4.1): multipart `image` + `entries` JSON
   (PipelineRequest, STRICT — no option keys inside task slots; see ML README).
 
 ## Validation checklist after GPU/storage changes

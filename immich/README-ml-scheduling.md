@@ -174,7 +174,7 @@ screen; the console is served over serial:
 - Re-validated after the hardware change: host zeInit `0x0`, in-pod zeInit
   `0x0`, RCS 90.2% busy @ ~1.14 GHz during predictions.
 
-ML API note (v3.3.1): `/predict` takes multipart `image` file +
+ML API note (v3.4.1): `/predict` takes multipart `image` file +
 `entries` form field = JSON of PipelineRequest: e.g.
 `{"clip":{"visual":{"modelName":"ViT-B-32__openai"}},"facial-recognition":{"detection":{"modelName":"buffalo_l"},"recognition":{"modelName":"buffalo_l"}}}`.
 The request config is STRICT (extra=forbid) — do not pass option keys like

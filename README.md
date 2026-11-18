@@ -59,3 +59,24 @@ Storage: Longhorn (`ssd-cache` SC, 2 replicas) for hot data; `nas-rwx`
 - DB and redis volumes are `Retain`-policy PVs, name-bound via claimRef.
 - `kbl_dmc`/GPU debugging recipe, zeInit ctypes test, and the
   `intel_gpu_top` RCS-busy% acceptance proof are in the ML README.
+
+## Upgrading Immich
+
+The version is pinned in exactly two places, and both must move together:
+
+| File | Image |
+|------|-------|
+| `immich/server-deployment.yaml` | `ghcr.io/immich-app/immich-server:<tag>` |
+| `immich/machine-learning.yaml` | `ghcr.io/immich-app/immich-machine-learning:<tag>-openvino` |
+
+Before bumping: read the release notes for breaking changes, confirm the tagged
+manifests exist on ghcr, and check the nightly Immich database backup is fresh
+(`time() - immich_database_backup_last_timestamp_seconds`). No database image
+change is needed for a patch/minor bump - `database/statefulset.yaml` runs
+`ghcr.io/immich-app/postgres:15-vectorchord0.5.3`, which is newer than the
+`14-vectorchord0.4.3` upstream pins in its own docker-compose, and Immich runs
+its schema migrations on server startup.
+
+Server rolls with `maxSurge: 1, maxUnavailable: 0`, so the upgrade is
+zero-downtime. Validate afterwards: `immich_server_info` shows the new version,
+`/api/server/ping` answers, and `immich_exporter_up` stays 1.
