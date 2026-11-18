@@ -102,3 +102,21 @@ spec:
   resources:
     requests:
       storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library-nfs
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteMany
+  # truenas-nfs (democratic-csi) mounts hard/timeo=600, unlike nas-rwx which is
+  # soft/timeo=30. A soft mount fails the write after ~3s instead of retrying,
+  # which is how the 2026-01-21 import left 10 originals truncated. It also
+  # gives this volume its own TrueNAS dataset (k8s-nfs/vols/pvc-*) and so its
+  # own snapshot target.
+  storageClassName: truenas-nfs
+  resources:
+    requests:
+      storage: 2Ti
