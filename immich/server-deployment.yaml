@@ -36,9 +36,11 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: NotIn
-                    values: ["k3s-worker-z690"]
+                  # Transcoding needs a working iGPU: node1 (UHD770) and nuc (UHD660
+                  # passed through). hp-g9 is CPU-only and z690 cannot attach volumes.
+                  - key: immich.ml/tier
+                    operator: In
+                    values: ["1"]
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 100
@@ -209,7 +211,11 @@ spec:
 
       containers:
         - name: immich-server
-          image: ghcr.io/immich-app/immich-server:v3.4.1
+          # Local build (see infra/immich-vaapi/Dockerfile): upstream v3.4.1 plus
+          # libva2 + intel-media-va-driver-non-free, without which the transcoder
+          # has no VAAPI at all and every job falls back to software encoding.
+          # Imported into containerd on the tier=1 nodes; no registry is involved.
+          image: immich-server:v3.4.1-vaapi
           imagePullPolicy: IfNotPresent
           # privileged: containerd device cgroup blocks /dev/dri char devices
           # even with matching supplementalGroups (44/109); QSV/VAAPI need it
@@ -219,6 +225,10 @@ spec:
             # CONFIGURE INTEL DRIVER
             - name: LIBVA_DRIVER_NAME
               value: "iHD"  # Crucial for N97/Alder Lake
+            # Where the iHD VAAPI driver from intel-media-va-driver-non-free lives.
+            # jellyfin-ffmpeg otherwise probes its own lib/dri path first.
+            - name: LIBVA_DRIVERS_PATH
+              value: "/usr/lib/x86_64-linux-gnu/dri"
             # Prometheus telemetry on :8081/metrics (IMMICH_API_METRICS_PORT default)
             - name: IMMICH_TELEMETRY_INCLUDE
               value: "all"
