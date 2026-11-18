@@ -25,7 +25,7 @@ data:
           "datasource": { "type": "prometheus" },
           "targets": [
             {
-              "expr": "max(kube_persistentvolumeclaim_status_phase{namespace=\"immich\", persistentvolumeclaim=\"immich-library\", phase=\"Bound\"})"
+              "expr": "max(kube_persistentvolumeclaim_status_phase{namespace=\"immich\", persistentvolumeclaim=\"immich-library-nfs\", phase=\"Bound\"})"
             }
           ],
           "fieldConfig": {
@@ -87,7 +87,7 @@ data:
           "datasource": { "type": "prometheus" },
           "targets": [
             {
-              "expr": "kubelet_volume_stats_used_bytes{namespace=\"immich\", persistentvolumeclaim=\"immich-library\"} / 1e9"
+              "expr": "kubelet_volume_stats_used_bytes{namespace=\"immich\", persistentvolumeclaim=\"immich-library-nfs\"} / 1e9"
             }
           ],
           "fieldConfig": { "defaults": { "unit": "gigabytes" } }

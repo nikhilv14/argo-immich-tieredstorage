@@ -197,7 +197,7 @@ spec:
             # Destinations: PVC roots (for marker file creation)
             - name: immich-upload
               mountPath: /upload-pvc-root
-            - name: immich-library
+            - name: immich-library-nfs
               mountPath: /library-pvc-root
             - name: immich-cache
               mountPath: /cache-pvc-root
@@ -266,7 +266,7 @@ spec:
             #Tiered storage
             - name: immich-cache
               mountPath: /usr/src/app/upload/thumbs
-            - name: immich-library
+            - name: immich-library-nfs
               mountPath: /usr/src/app/upload/library
             - name: immich-profile
               mountPath: /usr/src/app/upload/profile
@@ -280,9 +280,9 @@ spec:
         - name: immich-upload
           persistentVolumeClaim:
             claimName: immich-upload
-        - name: immich-library
+        - name: immich-library-nfs
           persistentVolumeClaim:
-            claimName: immich-library
+            claimName: immich-library-nfs
         - name: immich-cache
           persistentVolumeClaim:
             claimName: immich-cache
