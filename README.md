@@ -39,6 +39,12 @@ Storage: Longhorn (`ssd-cache` SC, 2 replicas) for hot data; `truenas-nfs`
 (democratic-csi) for the library (`immich-library-nfs`, 2Ti), upload, cache,
 profile and sync-queue; `nas-rwx` (nfs.csi) only for the WAL archive.
 
+`immich-server` transcodes on the iGPU: it runs the VAAPI-enabled image from
+`infra/immich-vaapi/` and is pinned to the two `immich.ml/tier=1` nodes
+(`k3s-node1` UHD770, `k3s-server-nuc` UHD660). Without the extra
+`intel-media-va-driver-non-free` layer the upstream image has no libva at all
+and every transcode falls back to software.
+
 The library moved off `nas-rwx` on 2026-11-18: that class mounts
 `soft,timeo=30`, which fails a write after ~3s instead of retrying and left 10
 originals truncated in the 2026-01-21 import. `truenas-nfs` mounts

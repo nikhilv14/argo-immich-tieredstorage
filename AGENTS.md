@@ -50,6 +50,26 @@ Read this plus the deep-dive docs before changing anything:
    outage they may/should fail over (validated). Do not "fix" them back to
    hard pins.
 
+## Transcoding on the iGPU
+
+`immich-server` runs the image built in `infra/immich-vaapi/` (upstream plus
+`libva2`/`intel-media-va-driver-non-free`). The upstream image has no VAAPI at
+all, so without it every transcode logs `No VA display found for device
+/dev/dri/renderD128` and silently uses software encoding.
+
+- The server is pinned to `immich.ml/tier=1` (`k3s-node1` UHD770,
+  `k3s-server-nuc` UHD660). `k3s-server-hp-g9` is CPU-only, `k3s-worker-z690`
+  cannot attach volumes.
+- `supplementalGroups` must carry the render GID of whichever host the pod
+  lands on: node1's render node is group `video` (44), nuc's is `render`
+  (**992** on Debian). Missing the GID gives EACCES on `/dev/dri/renderD128`
+  and VAAPI reports "No VA display found". The ML pods already carried 992.
+- `LIBVA_DRIVER_NAME=iHD` and `LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri`
+  are set on the container.
+- No registry exists, so the image is imported per node with
+  `k3s ctr --namespace k8s.io images import` (see `infra/immich-vaapi/README.md`).
+  A node missing it fails ImagePullBackOff rather than silently falling back.
+
 ## Known live-state quirks (cluster state, not in git)
 
 - `k3s-server-nuc`: `virtio_gpu` blacklisted (`/etc/modprobe.d/blacklist-virtio-gpu.conf`),
