@@ -54,7 +54,11 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
-        supplementalGroups: [109, 44] # 109 is 'render' and group ID (44 is usually 'video')
+# 109 = render on Ubuntu (k3s-node1's device is group video=44), 992 = render on
+        # Debian (k3s-server-nuc's /dev/dri/renderD128 is root:render 992). Without
+        # the matching GID the container cannot open the render node and VAAPI
+        # fails with "No VA display found" - same reason the ML pods carry 992.
+        supplementalGroups: [109, 44, 992]
 
 
       initContainers:
