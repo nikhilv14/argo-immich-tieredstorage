@@ -42,7 +42,7 @@ spec:
                       - k3s-node1
       containers:
         - name: redis
-          image: redis:6.2-alpine
+          image: redis:7.4.12-alpine
           imagePullPolicy: IfNotPresent
           # No password by default for internal Immich setup
           # If you need a password, add args: ["--requirepass", "$(REDIS_PASSWORD)"]
