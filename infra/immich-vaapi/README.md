@@ -1,6 +1,6 @@
 # immich-server VAAPI image
 
-`immich-server:v3.4.1-vaapi` — upstream v3.4.1 plus `libva2`, `libva-drm2`,
+`immich-server:v3.4.2-vaapi` — upstream v3.4.2 plus `libva2`, `libva-drm2`,
 `libva-glx2` and `intel-media-va-driver-non-free` (iHD). See the Dockerfile for
 the build and the per-node `k3s ctr images import` steps.
 

@@ -215,11 +215,11 @@ spec:
 
       containers:
         - name: immich-server
-          # Local build (see infra/immich-vaapi/Dockerfile): upstream v3.4.1 plus
+          # Local build (see infra/immich-vaapi/Dockerfile): upstream v3.4.2 plus
           # libva2 + intel-media-va-driver-non-free, without which the transcoder
           # has no VAAPI at all and every job falls back to software encoding.
           # Imported into containerd on the tier=1 nodes; no registry is involved.
-          image: immich-server:v3.4.1-vaapi
+          image: immich-server:v3.4.2-vaapi
           imagePullPolicy: IfNotPresent
           # privileged: containerd device cgroup blocks /dev/dri char devices
           # even with matching supplementalGroups (44/109); QSV/VAAPI need it

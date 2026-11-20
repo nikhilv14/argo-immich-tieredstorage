@@ -108,9 +108,11 @@ spec:
 
       containers:
         - name: immich-machine-learning
-          # -openvino variant: ships onnxruntime OpenVINO EP for iGPU inference
-          # pinned to v3.4.1 to match immich-server v3.4.1
-          image: ghcr.io/immich-app/immich-machine-learning:v3.4.1-openvino
+          # v3.4.2 shipped no -openvino build upstream (only the default/cpu,
+          # -cuda, -armnn and -rocm variants exist), so ML runs on the CPU image
+          # until an OpenVINO build is published; pinned to v3.4.2 to match
+          # immich-server. Restore the -openvino suffix when it appears.
+          image: ghcr.io/immich-app/immich-machine-learning:v3.4.2
           imagePullPolicy: IfNotPresent
           # GPU via Intel device plugin: advertises gpu.intel.com/i915, mounts
           # /dev/dri and fixes the cgroup-v2 device filter (privileged cannot)
