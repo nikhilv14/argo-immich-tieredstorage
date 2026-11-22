@@ -108,11 +108,14 @@ spec:
 
       containers:
         - name: immich-machine-learning
-          # Upstream never published a v3.4.2-openvino build, so this is the
-          # locally built derivative (infra/immich-ml-openvino): same v3.4.2
-          # base plus the onnxruntime-openvino wheel and the OpenCL ICD loader.
-          # Imported per node with `k3s ctr images import` (no registry here).
-          image: immich-machine-learning:v3.4.2-openvino
+          # Upstream missed the -openvino build for v3.4.2 because
+          # microsoft/onnxruntime was temporarily private (issue #33470);
+          # the maintainer explicitly blessed v3.4.1-openvino with a v3.4.2
+          # server ("there haven't been any ML changes in this version"), and
+          # the -openvino build should return in the next release. Use the
+          # official image; the local derivative stays as a fallback under
+          # infra/immich-ml-openvino/.
+          image: ghcr.io/immich-app/immich-machine-learning:v3.4.1-openvino
           imagePullPolicy: IfNotPresent
           # GPU via Intel device plugin: advertises gpu.intel.com/i915, mounts
           # /dev/dri and fixes the cgroup-v2 device filter (privileged cannot)
