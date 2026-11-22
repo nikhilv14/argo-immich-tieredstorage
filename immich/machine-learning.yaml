@@ -108,11 +108,11 @@ spec:
 
       containers:
         - name: immich-machine-learning
-          # v3.4.2 shipped no -openvino build upstream (only the default/cpu,
-          # -cuda, -armnn and -rocm variants exist), so ML runs on the CPU image
-          # until an OpenVINO build is published; pinned to v3.4.2 to match
-          # immich-server. Restore the -openvino suffix when it appears.
-          image: ghcr.io/immich-app/immich-machine-learning:v3.4.2
+          # Upstream never published a v3.4.2-openvino build, so this is the
+          # locally built derivative (infra/immich-ml-openvino): same v3.4.2
+          # base plus the onnxruntime-openvino wheel and the OpenCL ICD loader.
+          # Imported per node with `k3s ctr images import` (no registry here).
+          image: immich-machine-learning:v3.4.2-openvino
           imagePullPolicy: IfNotPresent
           # GPU via Intel device plugin: advertises gpu.intel.com/i915, mounts
           # /dev/dri and fixes the cgroup-v2 device filter (privileged cannot)
