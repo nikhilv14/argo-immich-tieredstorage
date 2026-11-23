@@ -28,17 +28,22 @@ FROM ghcr.io/immich-app/immich-machine-learning:v3.4.2
 
 ARG ORT_OPENVINO_VERSION=1.24.1
 
+# Intel GPU userspace (NEO OpenCL platform, Level Zero loader, IGC). This is
+# upstream's own install-intel-runtime.sh; without it OpenVINO enumerates only
+# ['CPU'] and Immich falls back to CPU even though the iGPU is mounted.
+COPY install-intel-runtime.sh /tmp/install-intel-runtime.sh
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates \
       curl \
       ocl-icd-libopencl1 \
+ && bash /tmp/install-intel-runtime.sh \
  && curl -fsSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py \
  && /opt/venv/bin/python /tmp/get-pip.py \
  && /opt/venv/bin/python -m pip uninstall -y onnxruntime \
  && /opt/venv/bin/python -m pip install --no-cache-dir --no-deps \
       "onnxruntime-openvino==${ORT_OPENVINO_VERSION}" \
- && rm -f /tmp/get-pip.py \
+ && rm -f /tmp/get-pip.py /tmp/install-intel-runtime.sh \
  && rm -rf /var/lib/apt/lists/*
 
 # Fail fast at build time if the EP did not materialise.
