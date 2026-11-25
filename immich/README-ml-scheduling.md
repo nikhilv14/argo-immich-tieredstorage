@@ -83,14 +83,17 @@ and future model-aware scheduling.
 
 ## HPA rules (machine-learning-hpa.yaml)
 
-- `minReplicas: 1`, `maxReplicas: 3`: ceiling = 3 tier=1 nodes x 1 iGPU each.
-  Scaling past 3 can only create Pending pods.
-- Metrics: CPU 75% and memory 80% utilization (max of the two triggers scale).
-  Note on memory: resident model memory spikes well above the 512Mi request
-  while models are loaded, which keeps the fleet scaled up during and shortly
-  after active use. Immich ML unloads models after an idle timeout, memory
-  drops back below target, and the fleet scales down to minReplicas
-  (observed live: 1 → 3 on load, 3 → 1 after idle).
+- `minReplicas: 1`, `maxReplicas: 2`: ceiling = the two tier=1 nodes with
+  allocatable `gpu.intel.com/i915` (k3s-node1 UHD770, k3s-server-nuc). hp-g9's
+  iGPU is assigned to an LXC guest, so it cannot host another ML replica.
+- Metrics: CPU 75% of the 250m request and memory `averageValue: 3Gi`.
+  Memory uses an absolute target because onnxruntime never returns model
+  memory to the OS after unload (arena caching). The old 1Gi target was set
+  when idle RSS was ~280Mi; with the PP-OCRv5 models idle RSS is ~1.2-1.6Gi
+  per pod, which held the HPA at max even when CPU was 1%. 3Gi is above the
+  idle fleet sum (scales to 1) but below burst RSS (peaks ~4.5Gi), so real
+  jobs still scale to 2 and `KubeHpaMaxedOut` only fires when both iGPU slots
+  are genuinely saturated.
 - Validated live 2026-10-10: **IMPORTANT CORRECTION** — deeper testing with
   `intel_gpu_top` showed 0% GPU engine utilization during 118 sustained
   predictions, and Level Zero `zeInit` fails inside every pod. Despite the
@@ -98,7 +101,7 @@ and future model-aware scheduling.
   on CPU. The GPU was never proven working in-pod; the provider listing alone
   is not evidence of GPU execution.
 - Scale up: aggressive (up to 100% / +1 pod per 15s, no stabilization) to fill
-  all three GPU slots quickly during smart-search / face-detection bursts.
+  both GPU slots quickly during smart-search / face-detection bursts.
 - Scale down: conservative (1 pod per 60s after 300s stabilization) since GPU
   model loading is expensive and flapping wastes inference time.
 

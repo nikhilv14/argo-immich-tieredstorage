@@ -30,14 +30,16 @@ spec:
         name: memory
         # averageValue (absolute) instead of Utilization: onnxruntime never
         # returns model memory to the OS after unload (arena caching), so RSS
-        # idles at ~280Mi avg vs the 512Mi request. At an 80% Utilization
-        # target that pins desired = ceil(3 * 54/80) = 3 forever — the fleet
-        # could never scale back to 1 while idle. With 1Gi, idle avg is ~27%
-        # -> desired 1; bursts still scale up via the CPU 75% target, and
-        # memory only triggers scaling if the fleet truly exceeds ~1Gi avg.
+        # stays high while idle. The old 1Gi target was set when idle avg was
+        # ~280Mi; after the PP-OCRv5 OCR models were added, idle RSS is ~1.2-
+        # 1.6Gi per pod (2.8Gi fleet), which pinned desired replicas at max
+        # even with CPU at 1% and made KubeHpaMaxedOut permanent noise.
+        # 3Gi is above the idle fleet sum (scales back to 1) but below burst
+        # RSS (peaks 4.5Gi per pod in the last 6h), so real face/OCR jobs
+        # still fill both GPU slots and the alert only fires when warranted.
         target:
           type: AverageValue
-          averageValue: 1Gi
+          averageValue: 3Gi
   behavior:
     scaleUp:
       # Fill GPU slots quickly during burst jobs (smart-search / face detection)
